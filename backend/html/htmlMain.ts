@@ -36,81 +36,6 @@ interface CSSCollection {
 
 export let cssCollection: CSSCollection = {};
 
-// Instance counters for class name generation - we keep this but primarily as a fallback
-const classNameCounters: Map<string, number> = new Map();
-
-// Generate a class name - prefer direct uniqueId, but fall back to counter-based if needed
-export function generateUniqueClassName(prefix = "figma"): string {
-	// Sanitize the prefix to ensure valid CSS class
-	const sanitizedPrefix =
-		prefix.replace(/[^a-zA-Z0-9_-]/g, "").replace(/^[0-9_-]/, "f") || // Ensure it doesn't start with a number or special char
-		"figma";
-
-	// Most of the time, we'll just use the prefix directly as it's pre-generated to be unique
-	// But keep the counter logic as a fallback
-	const count = classNameCounters.get(sanitizedPrefix) || 0;
-	classNameCounters.set(sanitizedPrefix, count + 1);
-
-	// Only add suffix if this isn't the first instance
-	return count === 0 ? sanitizedPrefix : `${sanitizedPrefix}_${count.toString().padStart(2, "0")}`;
-}
-
-// Reset all class name counters - call this at the start of processing
-export function resetClassNameCounters(): void {
-	classNameCounters.clear();
-}
-
-// Convert styles to CSS format
-export function stylesToCSS(styles: string[], isJSX: boolean): string[] {
-	return styles
-		.map((style) => {
-			// Skip empty styles
-			if (!style.trim()) return "";
-
-			// Handle JSX format if needed
-			if (isJSX) {
-				return style.replace(/^([a-zA-Z0-9]+):/, (match, prop) => {
-					// Convert camelCase to kebab-case for CSS
-					return prop.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2").toLowerCase() + ":";
-				});
-			}
-			return style;
-		})
-		.filter(Boolean); // Remove empty entries
-}
-
-// Get proper component name from node info
-export function getComponentName(node: any, className?: string, nodeType = "div"): string {
-	// Start with Styled prefix
-	let name = "Styled";
-
-	// Use uniqueName if available, otherwise use name
-	const nodeName: string = node.uniqueName || node.name;
-
-	// Try to use node name first
-	if (nodeName && nodeName.length > 0) {
-		// Clean up the node name and capitalize first letter
-		const cleanName = nodeName.replace(/[^a-zA-Z0-9]/g, "").replace(/^[a-z]/, (match) => match.toUpperCase());
-
-		name += cleanName || nodeType.charAt(0).toUpperCase() + nodeType.slice(1);
-	}
-	// Fall back to className if provided
-	else if (className) {
-		const parts = className.split("-");
-		if (parts.length > 0 && parts[0]) {
-			name += parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-		} else {
-			name += nodeType.charAt(0).toUpperCase() + nodeType.slice(1);
-		}
-	}
-	// Last resort
-	else {
-		name += nodeType.charAt(0).toUpperCase() + nodeType.slice(1);
-	}
-
-	return name;
-}
-
 // Get the collected CSS as a string with improved formatting
 export function getCollectedCSS(): string {
 	if (Object.keys(cssCollection).length === 0) {
@@ -126,89 +51,11 @@ export function getCollectedCSS(): string {
 		.join("\n\n");
 }
 
-// Generate styled-components with improved naming and formatting
-export function generateStyledComponents(): string {
-	const components: string[] = [];
+const classNameCounters: Map<string, number> = new Map();
 
-	Object.entries(cssCollection).forEach(([className, { styles, nodeName, nodeType, element }]) => {
-		// Skip if no styles
-		if (!styles.length) return;
-
-		// Determine base HTML element - defaults to div
-		const baseElement = element || (nodeType === "TEXT" ? "p" : "div");
-		const componentName = getComponentName({ name: nodeName }, className, baseElement);
-
-		const styledComponent = `const ${componentName} = styled.${baseElement}\`
-  ${styles.join(";\n  ")}${styles.length ? ";" : ""}
-\`;`;
-
-		components.push(styledComponent);
-	});
-
-	if (components.length === 0) {
-		return "";
-	}
-
-	return `${components.join("\n\n")}`;
-}
-
-// Get a valid React component name from a layer name
-export function getReactComponentName(node: any): string {
-	// Use uniqueName if available, otherwise use name
-	const name: string = node?.uniqueName || node?.name;
-
-	// Default name if nothing valid is provided
-	if (!name || name.trim() === "") {
-		return "App";
-	}
-
-	// Convert to PascalCase
-	let componentName = name
-		.replace(/[^a-zA-Z0-9_]/g, " ") // Replace non-alphanumeric chars with spaces
-		.split(/\s+/) // Split by spaces
-		.map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : ""))
-		.join("");
-
-	// Ensure it starts with uppercase letter (React component convention)
-	componentName = componentName.charAt(0).toUpperCase() + componentName.slice(1);
-
-	// Ensure it's a valid identifier - if it starts with a number, prefix with 'Component'
-	if (/^[0-9]/.test(componentName)) {
-		componentName = "Component" + componentName;
-	}
-
-	// If we ended up with nothing valid, use the default
-	return componentName || "App";
-}
-
-// Get a Svelte-friendly component name
-export function getSvelteElementName(elementType: string, nodeName?: string): string {
-	// For Svelte, use semantic element names where possible
-	if (elementType === "TEXT" || elementType === "p") {
-		return "p";
-	} else if (elementType === "img" || elementType === "IMAGE") {
-		return "img";
-	} else if (nodeName && (nodeName.toLowerCase().includes("button") || nodeName.toLowerCase().includes("btn"))) {
-		return "button";
-	} else if (nodeName && nodeName.toLowerCase().includes("link")) {
-		return "a";
-	} else {
-		return "div"; // Default element
-	}
-}
-
-// Generate semantic class names for Svelte
-export function getSvelteClassName(prefix?: string, nodeType?: string): string {
-	if (!prefix) {
-		return nodeType?.toLowerCase() || "element";
-	}
-
-	// Clean and format the prefix
-	return prefix
-		.replace(/[^a-zA-Z0-9_-]/g, "-")
-		.replace(/-{2,}/g, "-") // Replace multiple hyphens with a single one
-		.replace(/^-+|-+$/g, "") // Remove leading/trailing hyphens
-		.toLowerCase();
+// Reset all class name counters - call this at the start of processing
+export function resetClassNameCounters(): void {
+	classNameCounters.clear();
 }
 
 export const htmlMain = async (sceneNode: Array<SceneNode>, isPreview: boolean = false): Promise<HtmlOutput> => {
