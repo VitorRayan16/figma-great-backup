@@ -1,0 +1,14 @@
+{
+	"name": "great-conversions",
+	"id": "1501315961256810877",
+	"api": "1.0.0",
+	"main": "backend/main.js",
+	"ui": "dist/index.html",
+	"capabilities": [],
+	"enableProposedApi": false,
+	"documentAccess": "dynamic-page",
+	"editorType": ["figma"],
+	"networkAccess": {
+		"allowedDomains": ["none"]
+	}
+}
