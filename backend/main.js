@@ -1,8 +1,138 @@
 (() => {
-  // backend/common/indentString.ts
-  var indentString = (str, indentLevel = 2) => {
-    const regex = /^(?!\s*$)/gm;
-    return str.replace(regex, " ".repeat(indentLevel));
+  var __defProp = Object.defineProperty;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
+  var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+
+  // node_modules/js-base64/base64.mjs
+  var _hasBuffer = typeof Buffer === "function";
+  var _TD = typeof TextDecoder === "function" ? new TextDecoder() : void 0;
+  var _TE = typeof TextEncoder === "function" ? new TextEncoder() : void 0;
+  var b64ch = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+  var b64chs = Array.prototype.slice.call(b64ch);
+  var b64tab = ((a) => {
+    let tab = {};
+    a.forEach((c, i) => tab[c] = i);
+    return tab;
+  })(b64chs);
+  var _fromCC = String.fromCharCode.bind(String);
+  var _U8Afrom = typeof Uint8Array.from === "function" ? Uint8Array.from.bind(Uint8Array) : (it) => new Uint8Array(Array.prototype.slice.call(it, 0));
+  var btoaPolyfill = (bin) => {
+    let u32, c0, c1, c2, asc = "";
+    const pad = bin.length % 3;
+    for (let i = 0; i < bin.length; ) {
+      if ((c0 = bin.charCodeAt(i++)) > 255 || (c1 = bin.charCodeAt(i++)) > 255 || (c2 = bin.charCodeAt(i++)) > 255)
+        throw new TypeError("invalid character found");
+      u32 = c0 << 16 | c1 << 8 | c2;
+      asc += b64chs[u32 >> 18 & 63] + b64chs[u32 >> 12 & 63] + b64chs[u32 >> 6 & 63] + b64chs[u32 & 63];
+    }
+    return pad ? asc.slice(0, pad - 3) + "===".substring(pad) : asc;
+  };
+  var _btoa = typeof btoa === "function" ? (bin) => btoa(bin) : _hasBuffer ? (bin) => Buffer.from(bin, "binary").toString("base64") : btoaPolyfill;
+
+  // backend/common/commonConversionWarnings.ts
+  var warnings = /* @__PURE__ */ new Set();
+  var addWarning = (warning) => {
+    if (warnings.has(warning) === false) {
+      console.warn(warning);
+    }
+    warnings.add(warning);
+  };
+
+  // backend/common/exportAsyncProxy.ts
+  var isRunning = false;
+  var exportAsyncProxy = async (node, settings) => {
+    if (isRunning === false) {
+      isRunning = true;
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    }
+    const figmaNode = await figma.getNodeByIdAsync(node.id);
+    if (figmaNode.exportAsync === void 0) {
+      throw new TypeError(
+        "Something went wrong. This node doesn't have an exportAsync() function. Maybe check the type before calling this function."
+      );
+    }
+    let result;
+    if (settings.format === "SVG_STRING") {
+      result = await figmaNode.exportAsync(settings);
+    } else {
+      result = await figmaNode.exportAsync(settings);
+    }
+    isRunning = false;
+    return result;
+  };
+
+  // backend/common/images.ts
+  var fillIsImage = ({ type }) => type === "IMAGE";
+  var getImageFills = (node) => {
+    try {
+      return node.fills.filter(fillIsImage);
+    } catch (e) {
+      return [];
+    }
+  };
+  var nodeHasImageFill = (node) => getImageFills(node).length > 0;
+  var imageBytesToBase64 = (bytes) => {
+    const binaryString = bytes.reduce((data, byte) => {
+      return data + String.fromCharCode(byte);
+    }, "");
+    const b64 = _btoa(binaryString);
+    return `data:image/png;base64,${b64}`;
+  };
+  var exportNodeAsBase64PNG = async (node, excludeChildren) => {
+    if (node.base64 !== void 0 && node.base64 !== "") {
+      return node.base64;
+    }
+    const n = node;
+    const temporarilyHideChildren = excludeChildren && "children" in n && n.children.length > 0;
+    const parent = n;
+    const originalVisibility = /* @__PURE__ */ new Map();
+    if (temporarilyHideChildren) {
+      parent.children.map(
+        (child) => originalVisibility.set(child, child.visible)
+      ), // Temporarily hide all children
+      parent.children.forEach((child) => {
+        child.visible = false;
+      });
+    }
+    const exportSettings = {
+      format: "PNG",
+      constraint: { type: "SCALE", value: 1 }
+    };
+    const bytes = await exportAsyncProxy(n, exportSettings);
+    if (temporarilyHideChildren) {
+      parent.children.forEach((child) => {
+        var _a;
+        child.visible = (_a = originalVisibility.get(child)) != null ? _a : false;
+      });
+    }
+    addWarning("Some images exported as Base64 PNG");
+    const base64 = imageBytesToBase64(bytes);
+    node.base64 = base64;
+    return base64;
+  };
+
+  // backend/utils/function.ts
+  var randomString = (length) => {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
+    for (let i = 0; i < length; i++) {
+      result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
   };
 
   // backend/common/numToAutoFixed.ts
@@ -23,6 +153,63 @@
   var formatMultipleJSXArray = (styles) => Object.entries(styles).filter(([key, value]) => value !== "").map(([key, value]) => formatWithJSX(key, value));
   var formatMultipleJSX = (styles) => Object.entries(styles).filter(([key, value]) => value).map(([key, value]) => formatWithJSX(key, value)).join("; ");
 
+  // backend/html/builderImpl/htmlAutoLayout.ts
+  var getFlexDirection = (node) => node.layoutMode === "HORIZONTAL" ? "" : "column";
+  var getJustifyContent = (node) => {
+    switch (node.primaryAxisAlignItems) {
+      case void 0:
+      case "MIN":
+        return "flex-start";
+      case "CENTER":
+        return "center";
+      case "MAX":
+        return "flex-end";
+      case "SPACE_BETWEEN":
+        return "space-between";
+    }
+  };
+  var getAlignItems = (node) => {
+    switch (node.counterAxisAlignItems) {
+      case void 0:
+      case "MIN":
+        return "flex-start";
+      case "CENTER":
+        return "center";
+      case "MAX":
+        return "flex-end";
+      case "BASELINE":
+        return "baseline";
+    }
+  };
+  var getGap = (node) => node.itemSpacing > 0 && node.primaryAxisAlignItems !== "SPACE_BETWEEN" ? node.itemSpacing : "";
+  var getFlexWrap = (node) => node.layoutWrap === "WRAP" ? "wrap" : "";
+  var getAlignContent = (node) => {
+    if (node.layoutWrap !== "WRAP") return "";
+    switch (node.counterAxisAlignItems) {
+      case void 0:
+      case "MIN":
+        return "flex-start";
+      case "CENTER":
+        return "center";
+      case "MAX":
+        return "flex-end";
+      case "BASELINE":
+        return "baseline";
+      default:
+        return "normal";
+    }
+  };
+  var getFlex = (node, autoLayout) => node.parent && "layoutMode" in node.parent && node.parent.layoutMode === autoLayout.layoutMode ? "flex" : "inline-flex";
+  var htmlAutoLayoutProps = (node) => formatMultipleJSXArray({
+    "flex-direction": getFlexDirection(node),
+    "justify-content": getJustifyContent(node),
+    "align-items": getAlignItems(node),
+    gap: getGap(node),
+    display: getFlex(node, node),
+    "flex-wrap": getFlexWrap(node),
+    "align-content": getAlignContent(node)
+  });
+
   // backend/common/retrieveFill.ts
   var retrieveTopFill = (fills) => {
     if (fills && Array.isArray(fills) && fills.length > 0) {
@@ -33,7 +220,8 @@
 
   // backend/html/builderImpl/htmlColor.ts
   var processColorWithVariable = (fill) => {
-    const opacity = fill.opacity ? fill.opacity : 1;
+    var _a;
+    const opacity = (_a = fill.opacity) != null ? _a : 1;
     if (fill.variableColorName) {
       const varName = fill.variableColorName;
       const fallbackColor = htmlColor(fill.color, opacity);
@@ -42,17 +230,18 @@
     return htmlColor(fill.color, opacity);
   };
   var getColorAndVariable = (fill) => {
+    var _a, _b;
     if (fill.type === "SOLID") {
       return {
         color: fill.color,
-        opacity: fill.opacity ?? 1,
+        opacity: (_a = fill.opacity) != null ? _a : 1,
         variableColorName: fill.variableColorName
       };
     } else if ((fill.type === "GRADIENT_LINEAR" || fill.type === "GRADIENT_RADIAL" || fill.type === "GRADIENT_ANGULAR" || fill.type === "GRADIENT_DIAMOND") && fill.gradientStops.length > 0) {
       const firstStop = fill.gradientStops[0];
       return {
         color: firstStop.color,
-        opacity: fill.opacity ?? 1,
+        opacity: (_b = fill.opacity) != null ? _b : 1,
         variableColorName: firstStop.variableColorName
       };
     }
@@ -116,27 +305,30 @@
     }
   };
   var htmlLinearGradient = (fill) => {
+    var _a;
     const [start, end] = fill.gradientHandlePositions;
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     let angle = Math.atan2(dy, dx) * (180 / Math.PI);
     angle = (angle + 360) % 360;
     const cssAngle = (angle + 90) % 360;
-    const mappedFill = processGradientStops(fill.gradientStops, fill.opacity ?? 1);
+    const mappedFill = processGradientStops(fill.gradientStops, (_a = fill.opacity) != null ? _a : 1);
     return `linear-gradient(${cssAngle.toFixed(0)}deg, ${mappedFill})`;
   };
   var htmlRadialGradient = (fill) => {
+    var _a;
     const [center, h1, h2] = fill.gradientHandlePositions;
     const cx = center.x * 100;
     const cy = center.y * 100;
     const rx = Math.sqrt((h1.x - center.x) ** 2 + (h1.y - center.y) ** 2) * 100;
     const ry = Math.sqrt((h2.x - center.x) ** 2 + (h2.y - center.y) ** 2) * 100;
-    const mappedStops = processGradientStops(fill.gradientStops, fill.opacity ?? 1);
+    const mappedStops = processGradientStops(fill.gradientStops, (_a = fill.opacity) != null ? _a : 1);
     return `radial-gradient(ellipse ${rx.toFixed(2)}% ${ry.toFixed(2)}% at ${cx.toFixed(2)}% ${cy.toFixed(
       2
     )}%, ${mappedStops})`;
   };
   var htmlAngularGradient = (fill) => {
+    var _a;
     const [center, _, startDirection] = fill.gradientHandlePositions;
     const cx = center.x * 100;
     const cy = center.y * 100;
@@ -144,11 +336,12 @@
     const dy = startDirection.y - center.y;
     let angle = Math.atan2(dy, dx) * (180 / Math.PI);
     angle = (angle + 360) % 360;
-    const mappedFill = processGradientStops(fill.gradientStops, fill.opacity ?? 1, 360, "deg");
+    const mappedFill = processGradientStops(fill.gradientStops, (_a = fill.opacity) != null ? _a : 1, 360, "deg");
     return `conic-gradient(from ${angle.toFixed(0)}deg at ${cx.toFixed(2)}% ${cy.toFixed(2)}%, ${mappedFill})`;
   };
   var htmlDiamondGradient = (fill) => {
-    const stops = processGradientStops(fill.gradientStops, fill.opacity ?? 1, 50, "%");
+    var _a;
+    const stops = processGradientStops(fill.gradientStops, (_a = fill.opacity) != null ? _a : 1, 50, "%");
     const gradientConfigs = [
       { direction: "to bottom right", position: "bottom right" },
       { direction: "to bottom left", position: "bottom left" },
@@ -299,11 +492,12 @@
 
   // backend/common/commonPadding.ts
   var commonPadding = (node) => {
+    var _a, _b, _c, _d;
     if ("layoutMode" in node && node.layoutMode !== "NONE") {
-      const paddingLeft = parseFloat((node.paddingLeft ?? 0).toFixed(2));
-      const paddingRight = parseFloat((node.paddingRight ?? 0).toFixed(2));
-      const paddingTop = parseFloat((node.paddingTop ?? 0).toFixed(2));
-      const paddingBottom = parseFloat((node.paddingBottom ?? 0).toFixed(2));
+      const paddingLeft = parseFloat(((_a = node.paddingLeft) != null ? _a : 0).toFixed(2));
+      const paddingRight = parseFloat(((_b = node.paddingRight) != null ? _b : 0).toFixed(2));
+      const paddingTop = parseFloat(((_c = node.paddingTop) != null ? _c : 0).toFixed(2));
+      const paddingBottom = parseFloat(((_d = node.paddingBottom) != null ? _d : 0).toFixed(2));
       if (paddingLeft === paddingRight && paddingLeft === paddingBottom && paddingTop === paddingBottom) {
         return { all: paddingLeft };
       } else if (paddingLeft === paddingRight && paddingTop === paddingBottom) {
@@ -372,6 +566,9 @@
     }
     return { width: node.width, height: node.height };
   };
+
+  // backend/html/htmlMain.ts
+  var isPreviewGlobal = false;
 
   // backend/html/builderImpl/htmlSize.ts
   var htmlSizePartial = (node) => {
@@ -499,9 +696,9 @@
   };
 
   // backend/common/commonPosition.ts
-  var getCommonPositionValue = (node, settings2) => {
+  var getCommonPositionValue = (node, settings) => {
     if (node.parent && node.parent.absoluteBoundingBox) {
-      if (settings2?.embedVectors && node.svg) {
+      if ((settings == null ? void 0 : settings.embedVectors) && node.svg) {
         return {
           x: node.absoluteBoundingBox.x - node.parent.absoluteBoundingBox.x,
           y: node.absoluteBoundingBox.y - node.parent.absoluteBoundingBox.y
@@ -572,12 +769,40 @@
   var formatDataAttribute = (label, value) => ` data-${lowercaseFirstLetter(label).replace(" ", "-")}${value === void 0 ? `` : `="${value}"`}`;
   var formatClassAttribute = (classes) => classes.length === 0 ? "" : ` ${"class"}="${classes.join(" ")}"`;
 
+  // backend/common/commonTextHeightSpacing.ts
+  var commonLineHeight = (lineHeight, fontSize) => {
+    switch (lineHeight.unit) {
+      case "AUTO":
+        return 0;
+      case "PIXELS":
+        return lineHeight.value;
+      case "PERCENT":
+        return fontSize * lineHeight.value / 100;
+    }
+  };
+  var commonLetterSpacing = (letterSpacing, fontSize) => {
+    switch (letterSpacing.unit) {
+      case "PIXELS":
+        return letterSpacing.value;
+      case "PERCENT":
+        return fontSize * letterSpacing.value / 100;
+    }
+  };
+
   // backend/html/htmlDefaultBuilder.ts
   var HtmlDefaultBuilder = class {
-    styles;
-    data;
-    node;
-    cssClassName = null;
+    constructor(node) {
+      __publicField(this, "styles");
+      __publicField(this, "data");
+      __publicField(this, "node");
+      __publicField(this, "cssClassName", null);
+      __publicField(this, "addStyles", (...newStyles) => {
+        this.styles.push(...newStyles.filter((style) => style));
+      });
+      this.node = node;
+      this.styles = [];
+      this.data = [];
+    }
     get name() {
       return "";
     }
@@ -588,11 +813,6 @@
     get htmlElement() {
       if (this.node.type === "TEXT") return "p";
       return "div";
-    }
-    constructor(node) {
-      this.node = node;
-      this.styles = [];
-      this.data = [];
     }
     commonPositionStyles() {
       this.size();
@@ -610,9 +830,6 @@
       this.blur();
       return this;
     }
-    addStyles = (...newStyles) => {
-      this.styles.push(...newStyles.filter((style) => style));
-    };
     blend() {
       const { node } = this;
       this.addStyles(
@@ -704,10 +921,11 @@
         return "";
       }
       const blendModes = [...paintArray].reverse().map((paint) => {
+        var _a;
         if (paint.blendMode === "PASS_THROUGH") {
           return "normal";
         }
-        return paint.blendMode?.toLowerCase();
+        return (_a = paint.blendMode) == null ? void 0 : _a.toLowerCase();
       });
       return blendModes.join(", ");
     }
@@ -772,13 +990,14 @@
       return this;
     }
     build(additionalStyle = []) {
+      var _a;
       this.addStyles(...additionalStyle);
       let classNames = [];
       if (this.name) {
         this.addData("layer", this.name.trim());
       }
       if ("componentProperties" in this.node && this.node.componentProperties) {
-        Object.entries(this.node.componentProperties)?.map((prop) => {
+        (_a = Object.entries(this.node.componentProperties)) == null ? void 0 : _a.map((prop) => {
           if (prop[1].type === "VARIANT" || prop[1].type === "BOOLEAN") {
             const cleanName = prop[0].split("#")[0].replace(/\s+/g, "-").toLowerCase();
             return formatDataAttribute(cleanName, String(prop[1].value));
@@ -792,28 +1011,6 @@
       return `${dataAttributes}${classAttribute}${styleAttribute}`;
     }
   };
-
-  // backend/common/commonTextHeightSpacing.ts
-  var commonLineHeight = (lineHeight, fontSize) => {
-    switch (lineHeight.unit) {
-      case "AUTO":
-        return 0;
-      case "PIXELS":
-        return lineHeight.value;
-      case "PERCENT":
-        return fontSize * lineHeight.value / 100;
-    }
-  };
-  var commonLetterSpacing = (letterSpacing, fontSize) => {
-    switch (letterSpacing.unit) {
-      case "PIXELS":
-        return letterSpacing.value;
-      case "PERCENT":
-        return fontSize * letterSpacing.value / 100;
-    }
-  };
-
-  // backend/html/htmlTextBuilder.ts
   var HtmlTextBuilder = class extends HtmlDefaultBuilder {
     constructor(node) {
       super(node);
@@ -837,7 +1034,7 @@
         if (textShadowStyle) {
           additionalStyles["text-shadow"] = textShadowStyle;
         }
-        const styleAttributes = formatMultipleJSX({
+        const styleAttributes = formatMultipleJSX(__spreadValues({
           color: htmlColorFromFills(segment.fills),
           "font-size": segment.fontSize,
           "font-family": segment.fontName.family,
@@ -848,9 +1045,8 @@
           "line-height": this.lineHeight(segment.lineHeight, segment.fontSize),
           "letter-spacing": this.letterSpacing(segment.letterSpacing, segment.fontSize),
           // "text-indent": segment.indentation,
-          "word-wrap": "break-word",
-          ...additionalStyles
-        });
+          "word-wrap": "break-word"
+        }, additionalStyles));
         const charsWithLineBreak = segment.characters.split("\n").join("<br/>");
         const result = {
           style: styleAttributes,
@@ -1001,392 +1197,450 @@
     }
   };
 
-  // backend/html/builderImpl/htmlAutoLayout.ts
-  var getFlexDirection = (node) => node.layoutMode === "HORIZONTAL" ? "" : "column";
-  var getJustifyContent = (node) => {
-    switch (node.primaryAxisAlignItems) {
-      case void 0:
-      case "MIN":
-        return "flex-start";
-      case "CENTER":
-        return "center";
-      case "MAX":
-        return "flex-end";
-      case "SPACE_BETWEEN":
-        return "space-between";
+  // backend/html/BlockBuilder.ts
+  var BlockBuilder = class {
+    constructor() {
+      __publicField(this, "block");
+      __publicField(this, "elements");
+      this.elements = [];
+      this.block = null;
     }
-  };
-  var getAlignItems = (node) => {
-    switch (node.counterAxisAlignItems) {
-      case void 0:
-      case "MIN":
-        return "flex-start";
-      case "CENTER":
-        return "center";
-      case "MAX":
-        return "flex-end";
-      case "BASELINE":
-        return "baseline";
-    }
-  };
-  var getGap = (node) => node.itemSpacing > 0 && node.primaryAxisAlignItems !== "SPACE_BETWEEN" ? node.itemSpacing : "";
-  var getFlexWrap = (node) => node.layoutWrap === "WRAP" ? "wrap" : "";
-  var getAlignContent = (node) => {
-    if (node.layoutWrap !== "WRAP") return "";
-    switch (node.counterAxisAlignItems) {
-      case void 0:
-      case "MIN":
-        return "flex-start";
-      case "CENTER":
-        return "center";
-      case "MAX":
-        return "flex-end";
-      case "BASELINE":
-        return "baseline";
-      default:
-        return "normal";
-    }
-  };
-  var getFlex = (node, autoLayout) => node.parent && "layoutMode" in node.parent && node.parent.layoutMode === autoLayout.layoutMode ? "flex" : "inline-flex";
-  var htmlAutoLayoutProps = (node) => formatMultipleJSXArray({
-    "flex-direction": getFlexDirection(node),
-    "justify-content": getJustifyContent(node),
-    "align-items": getAlignItems(node),
-    gap: getGap(node),
-    display: getFlex(node, node),
-    "flex-wrap": getFlexWrap(node),
-    "align-content": getAlignContent(node)
-  });
-
-  // backend/common/nodeVisibility.ts
-  var getVisibleNodes = (nodes) => nodes.filter((d) => d.visible ?? true);
-
-  // node_modules/js-base64/base64.mjs
-  var _hasBuffer = typeof Buffer === "function";
-  var _TD = typeof TextDecoder === "function" ? new TextDecoder() : void 0;
-  var _TE = typeof TextEncoder === "function" ? new TextEncoder() : void 0;
-  var b64ch = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-  var b64chs = Array.prototype.slice.call(b64ch);
-  var b64tab = ((a) => {
-    let tab = {};
-    a.forEach((c, i) => tab[c] = i);
-    return tab;
-  })(b64chs);
-  var _fromCC = String.fromCharCode.bind(String);
-  var _U8Afrom = typeof Uint8Array.from === "function" ? Uint8Array.from.bind(Uint8Array) : (it) => new Uint8Array(Array.prototype.slice.call(it, 0));
-  var btoaPolyfill = (bin) => {
-    let u32, c0, c1, c2, asc = "";
-    const pad = bin.length % 3;
-    for (let i = 0; i < bin.length; ) {
-      if ((c0 = bin.charCodeAt(i++)) > 255 || (c1 = bin.charCodeAt(i++)) > 255 || (c2 = bin.charCodeAt(i++)) > 255)
-        throw new TypeError("invalid character found");
-      u32 = c0 << 16 | c1 << 8 | c2;
-      asc += b64chs[u32 >> 18 & 63] + b64chs[u32 >> 12 & 63] + b64chs[u32 >> 6 & 63] + b64chs[u32 & 63];
-    }
-    return pad ? asc.slice(0, pad - 3) + "===".substring(pad) : asc;
-  };
-  var _btoa = typeof btoa === "function" ? (bin) => btoa(bin) : _hasBuffer ? (bin) => Buffer.from(bin, "binary").toString("base64") : btoaPolyfill;
-
-  // backend/common/commonConversionWarnings.ts
-  var warnings = /* @__PURE__ */ new Set();
-  var addWarning = (warning) => {
-    if (warnings.has(warning) === false) {
-      console.warn(warning);
-    }
-    warnings.add(warning);
-  };
-
-  // backend/common/exportAsyncProxy.ts
-  var isRunning = false;
-  var exportAsyncProxy = async (node, settings2) => {
-    if (isRunning === false) {
-      isRunning = true;
-      await new Promise((resolve) => setTimeout(resolve, 30));
-    }
-    const figmaNode = await figma.getNodeByIdAsync(node.id);
-    if (figmaNode.exportAsync === void 0) {
-      throw new TypeError(
-        "Something went wrong. This node doesn't have an exportAsync() function. Maybe check the type before calling this function."
-      );
-    }
-    let result;
-    if (settings2.format === "SVG_STRING") {
-      result = await figmaNode.exportAsync(settings2);
-    } else {
-      result = await figmaNode.exportAsync(settings2);
-    }
-    isRunning = false;
-    return result;
-  };
-
-  // backend/common/images.ts
-  var fillIsImage = ({ type }) => type === "IMAGE";
-  var getImageFills = (node) => {
-    try {
-      return node.fills.filter(fillIsImage);
-    } catch (e) {
-      return [];
-    }
-  };
-  var nodeHasImageFill = (node) => getImageFills(node).length > 0;
-  var imageBytesToBase64 = (bytes) => {
-    const binaryString = bytes.reduce((data, byte) => {
-      return data + String.fromCharCode(byte);
-    }, "");
-    const b64 = _btoa(binaryString);
-    return `data:image/png;base64,${b64}`;
-  };
-  var exportNodeAsBase64PNG = async (node, excludeChildren) => {
-    if (node.base64 !== void 0 && node.base64 !== "") {
-      return node.base64;
-    }
-    const n = node;
-    const temporarilyHideChildren = excludeChildren && "children" in n && n.children.length > 0;
-    const parent = n;
-    const originalVisibility = /* @__PURE__ */ new Map();
-    if (temporarilyHideChildren) {
-      parent.children.map(
-        (child) => originalVisibility.set(child, child.visible)
-      ), // Temporarily hide all children
-      parent.children.forEach((child) => {
-        child.visible = false;
-      });
-    }
-    const exportSettings = {
-      format: "PNG",
-      constraint: { type: "SCALE", value: 1 }
-    };
-    const bytes = await exportAsyncProxy(n, exportSettings);
-    if (temporarilyHideChildren) {
-      parent.children.forEach((child) => {
-        child.visible = originalVisibility.get(child) ?? false;
-      });
-    }
-    addWarning("Some images exported as Base64 PNG");
-    const base64 = imageBytesToBase64(bytes);
-    node.base64 = base64;
-    return base64;
-  };
-
-  // backend/node/nodeUtils.ts
-  var renderAndAttachSVG = async (node) => {
-    if (node.canBeFlattened) {
-      if (node.svg) {
-        return node;
+    async build(node) {
+      this.block = null;
+      this.elements = [];
+      let additionalStyles = [];
+      if (node.layoutMode !== "NONE") {
+        additionalStyles = htmlAutoLayoutProps(node);
       }
-      try {
-        const svg = await exportAsyncProxy(node, {
-          format: "SVG_STRING"
-        });
-        if (node.colorVariableMappings && node.colorVariableMappings.size > 0) {
-          let processedSvg = svg;
-          const colorAttributeRegex = /(fill|stroke)="([^"]*)"/g;
-          processedSvg = processedSvg.replace(colorAttributeRegex, (match, attribute, colorValue) => {
-            const normalizedColor = colorValue.toLowerCase().trim();
-            const mapping = node.colorVariableMappings.get(normalizedColor);
-            if (mapping) {
-              return `${attribute}="var(--${mapping.variableName}, ${colorValue})"`;
-            }
-            return match;
-          });
-          const styleRegex = /style="([^"]*)(?:(fill|stroke):\s*([^;"]*))(;|\s|")([^"]*)"/g;
-          processedSvg = processedSvg.replace(
-            styleRegex,
-            (match, prefix, property, colorValue, separator, suffix) => {
-              const normalizedColor = colorValue.toLowerCase().trim();
-              const mapping = node.colorVariableMappings.get(normalizedColor);
-              if (mapping) {
-                return `style="${prefix}${property}: var(--${mapping.variableName}, ${colorValue})${separator}${suffix}"`;
+      this.block = await this.parseBlock(node, additionalStyles);
+      this.elements = await this.parseElements(node.children);
+      return {
+        block: this.block,
+        elements: this.elements
+      };
+    }
+    async parseBlock(node, additionalStyles = []) {
+      var _a;
+      const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
+      if (!builder.styles && !additionalStyles) {
+        console.log("bloco no if", builder.styles, builder.data, builder.cssClassName);
+        return {
+          id: this.genBlockId(),
+          isPopup: false,
+          element: {
+            boundingClientRect: {
+              desktop: {
+                width: node.width,
+                height: node.height,
+                left: 0,
+                top: 0
+              },
+              mobile: {
+                width: node.width,
+                height: node.height,
+                left: 0,
+                top: 0
               }
-              return match;
-            }
-          );
-          node.svg = processedSvg;
-        } else {
-          node.svg = svg;
-        }
-      } catch (error) {
-        console.error(`Error rendering SVG for ${node.type}:${node.id}`);
-        console.error(error);
+            },
+            order: 1,
+            styles: {
+              desktop: {},
+              mobile: {}
+            },
+            classes: []
+          }
+        };
       }
-    }
-    return node;
-  };
-
-  // backend/html/htmlMain.ts
-  var selfClosingTags = ["img"];
-  var isPreviewGlobal = false;
-  var previousExecutionCache;
-  var cssCollection = {};
-  function getCollectedCSS() {
-    if (Object.keys(cssCollection).length === 0) {
-      return "";
-    }
-    return Object.entries(cssCollection).map(([className, { styles }]) => {
-      if (!styles.length) return "";
-      return `.${className} {
-  ${styles.join(";\n  ")}${styles.length ? ";" : ""}
-}`;
-    }).filter(Boolean).join("\n\n");
-  }
-  var classNameCounters = /* @__PURE__ */ new Map();
-  function resetClassNameCounters() {
-    classNameCounters.clear();
-  }
-  var htmlMain = async (sceneNode, isPreview = false) => {
-    isPreviewGlobal = isPreview;
-    previousExecutionCache = [];
-    cssCollection = {};
-    resetClassNameCounters();
-    let htmlContent = await htmlWidgetGenerator(sceneNode);
-    if (htmlContent.length > 0 && htmlContent.startsWith("\n")) {
-      htmlContent = htmlContent.slice(1, htmlContent.length);
-    }
-    const output = { html: htmlContent };
-    if (Object.keys(cssCollection).length > 0) {
-      output.css = getCollectedCSS();
-    }
-    return output;
-  };
-  var htmlWidgetGenerator = async (sceneNode) => {
-    const promiseOfConvertedCode = getVisibleNodes(sceneNode).map(convertNode());
-    const code = (await Promise.all(promiseOfConvertedCode)).join("");
-    return code;
-  };
-  var convertNode = () => async (node) => {
-    if (node.canBeFlattened) {
-      const altNode = await renderAndAttachSVG(node);
-      if (altNode.svg) {
-        return htmlWrapSVG(altNode);
-      }
-    }
-    switch (node.type) {
-      case "RECTANGLE":
-      case "ELLIPSE":
-        return await htmlContainer(node, "", []);
-      case "GROUP":
-        return await htmlGroup(node);
-      case "FRAME":
-      case "COMPONENT":
-      case "INSTANCE":
-      case "COMPONENT_SET":
-        return await htmlFrame(node);
-      case "SECTION":
-        return await htmlSection(node);
-      case "TEXT":
-        return htmlText(node);
-      case "LINE":
-        return htmlLine(node);
-      case "VECTOR":
-        if (!isPreviewGlobal) {
-          addWarning("Vector is not supported");
-        }
-        return await htmlContainer({ ...node, type: "RECTANGLE" }, "", []);
-      default:
-        addWarning(`${node.type} node is not supported`);
-        return "";
-    }
-  };
-  var htmlWrapSVG = (node) => {
-    if (node.svg === "") return "";
-    const builder = new HtmlDefaultBuilder(node).addData("svg-wrapper").position();
-    return `
-<div${builder.build()}>
-${node.svg ?? ""}</div>`;
-  };
-  var htmlGroup = async (node) => {
-    if (node.width < 0 || node.height <= 0 || node.children.length === 0) {
-      return "";
-    }
-    const builder = new HtmlDefaultBuilder(node).commonPositionStyles();
-    if (builder.styles) {
-      const attr = builder.build();
-      const generator = await htmlWidgetGenerator(node.children);
-      return `
-<div${attr}>${indentString(generator)}
-</div>`;
-    }
-    return await htmlWidgetGenerator(node.children);
-  };
-  var htmlText = (node) => {
-    let layoutBuilder = new HtmlTextBuilder(node).commonPositionStyles().textTrim().textAlignHorizontal().textAlignVertical();
-    const styledHtml = layoutBuilder.getTextSegments(node);
-    previousExecutionCache.push(...styledHtml);
-    let content = "";
-    if (styledHtml.length === 1) {
-      layoutBuilder.addStyles(styledHtml[0].style);
-      content = styledHtml[0].text;
-      const additionalTag = styledHtml[0].openTypeFeatures.SUBS === true ? "sub" : styledHtml[0].openTypeFeatures.SUPS === true ? "sup" : "";
-      if (additionalTag) {
-        content = `<${additionalTag}>${content}</${additionalTag}>`;
-      }
-    } else {
-      content = styledHtml.map((style) => {
-        const tag = style.openTypeFeatures.SUBS === true ? "sub" : style.openTypeFeatures.SUPS === true ? "sup" : "span";
-        return `<${tag} style="${style.style}">${style.text}</${tag}>`;
-      }).join("");
-    }
-    return `
-<div${layoutBuilder.build()}>${content}</div>`;
-  };
-  var htmlFrame = async (node) => {
-    const childrenStr = await htmlWidgetGenerator(node.children);
-    if (node.layoutMode !== "NONE") {
-      const rowColumn = htmlAutoLayoutProps(node);
-      return await htmlContainer(node, childrenStr, rowColumn);
-    }
-    return await htmlContainer(node, childrenStr, []);
-  };
-  var htmlContainer = async (node, children, additionalStyles = []) => {
-    if (node.width <= 0 || node.height <= 0) {
-      return children;
-    }
-    const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
-    if (builder.styles || additionalStyles) {
-      let tag = "div";
-      let src = "";
+      let image = void 0;
       if (nodeHasImageFill(node)) {
         const altNode = node;
         const hasChildren = "children" in node && node.children.length > 0;
-        const imgUrl = await exportNodeAsBase64PNG(altNode, hasChildren) ?? "";
-        if (hasChildren) {
-          builder.addStyles(formatWithJSX("background-image", `url(${imgUrl})`));
-        } else {
-          tag = "img";
-          src = ` src="${imgUrl}"`;
+        const imgUrl = (_a = await exportNodeAsBase64PNG(altNode, hasChildren)) != null ? _a : "";
+        image = {
+          desktop: {
+            file: imgUrl,
+            dimensions: {
+              height: node.height,
+              width: node.width
+            }
+          },
+          mobile: {
+            file: imgUrl,
+            dimensions: {
+              height: node.height,
+              width: node.width
+            }
+          }
+        };
+      }
+      builder.addStyles(...additionalStyles);
+      const styles = this.stylesToObj(builder.styles);
+      return {
+        image,
+        isPopup: false,
+        element: {
+          boundingClientRect: {
+            desktop: {
+              width: node.width,
+              height: node.height,
+              left: 0,
+              top: 0
+            },
+            mobile: {
+              width: node.width,
+              height: node.height,
+              left: 0,
+              top: 0
+            }
+          },
+          order: 1,
+          styles,
+          classes: []
+        },
+        id: this.genBlockId()
+      };
+    }
+    genBlockId() {
+      return randomString(15);
+    }
+    genElementId() {
+      return "element_" + randomString(20);
+    }
+    stylesToObj(styles) {
+      const stylesObj = {
+        desktop: {},
+        mobile: {}
+      };
+      for (const device of ["desktop", "mobile"]) {
+        styles.forEach((style) => {
+          const [key, value] = style.split(":");
+          stylesObj[device][key.trim()] = value.trim();
+        });
+      }
+      return stylesObj;
+    }
+    async parseElements(nodes) {
+      const parsedElements = [];
+      for (const element of nodes) {
+        const parsedElement = await this.parseElement(element);
+        if (parsedElement.length || parsedElement.length === 0) {
+          parsedElements.push(...parsedElement);
+        } else parsedElements.push(parsedElement);
+      }
+      return parsedElements;
+    }
+    async parseElement(node) {
+      switch (node.type) {
+        case "RECTANGLE":
+        case "ELLIPSE":
+          return await this.parseContainerElement(node);
+        case "GROUP":
+          return await this.parseElements(node.children);
+        case "FRAME":
+        case "COMPONENT":
+        case "INSTANCE":
+        case "COMPONENT_SET":
+          return [
+            ...await this.parseElements(node.children),
+            await this.parseContainerElement(node)
+          ];
+        case "SECTION":
+          return await this.parseSectionElement(node);
+        case "TEXT":
+          return this.parseTextElement(node);
+        case "LINE":
+          return this.parseLineElement(node);
+        case "VECTOR":
+          console.log(`[DEBUG] VECTOR node is not supported`);
+          return [];
+        default:
+          console.log(`[DEBUG] ${node.type} node is not supported`);
+          return [];
+      }
+    }
+    async parseLineElement(node) {
+      const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
+      const styles = this.stylesToObj(builder.styles);
+      const dividerStyle = `%z-index% border-bottom: ${styles.desktop["outline"]}`;
+      let content = `
+  					<div
+  						class="conteudo ${"elemento_linha_horizontal" /* DIVIDER */}"
+  						style="${dividerStyle}"
+  					></div>`;
+      content = this.cleanInnerHtml(content);
+      const css = `#e_%element-id% .c{${dividerStyle}}`;
+      const elementId = this.genElementId();
+      return {
+        id: elementId,
+        blockId: this.block.id,
+        boundingClientRect: {
+          desktop: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          },
+          mobile: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          }
+        },
+        classes: this.getElementClasses(elementId, "elemento_linha_horizontal" /* DIVIDER */),
+        content: {
+          desktop: content,
+          mobile: content
+        },
+        css: {
+          desktop: css,
+          mobile: css
+        },
+        styles
+      };
+    }
+    async parseTextElement(node) {
+      const layoutBuilder = new HtmlTextBuilder(node).commonPositionStyles().textTrim().textAlignHorizontal().textAlignVertical();
+      const styledHtml = layoutBuilder.getTextSegments(node);
+      let content = "";
+      const itemsCss = [];
+      const extractedStyles = [];
+      if (styledHtml.length === 1) {
+        layoutBuilder.addStyles(styledHtml[0].style);
+        const styleObj = this.stylesToObj(styledHtml[0].style.split(";")).desktop;
+        extractedStyles.push(styleObj);
+        if (styleObj.color) {
+          itemsCss.push(
+            `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1){ color: ${styleObj.color}; }`
+          );
+        }
+        content = `<span>${styledHtml[0].text}</span>`;
+      } else {
+        content = styledHtml.map((style, index) => {
+          const styleObj = this.stylesToObj(style.style.split(";")).desktop;
+          extractedStyles.push(styleObj);
+          if (styleObj.color) {
+            itemsCss.push(
+              `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(${index + 1}){ color: ${styleObj.color}; }`
+            );
+          }
+          return `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}>${style.text}</span>`;
+        }).join("");
+      }
+      content = content.replace(/<s>/g, "<strike>").replace(/<\/s>/, "</strike>");
+      content = content.replace(/<underline>/, "<u>").replace(/<\/underline>/, "</u>");
+      content = content.replace(/<strong>/, "<b>").replace(/<\/strong>/, "</b>");
+      content = `<p>${content}</p>`;
+      let fontSize, lineHeight, textAlign;
+      const styles = this.stylesToObj(layoutBuilder.styles);
+      if (styles.desktop["text-align"]) {
+        textAlign = styles.desktop["text-align"];
+      }
+      const sizes = {};
+      const lineHeights = {};
+      for (const style of extractedStyles) {
+        if (style["font-size"]) {
+          if (sizes[style["font-size"]]) {
+            sizes[style["font-size"]]++;
+          } else {
+            sizes[style["font-size"]] = 1;
+          }
+        }
+        if (style["line-height"]) {
+          if (lineHeights[style["line-height"]]) {
+            lineHeights[style["line-height"]]++;
+          } else {
+            lineHeights[style["line-height"]] = 1;
+          }
         }
       }
-      const build = builder.build(additionalStyles);
-      if (children) {
-        return `
-<${tag}${build}${src}>${indentString(children)}
-</${tag}>`;
-      } else if (selfClosingTags.includes(tag)) {
-        return `
-<${tag}${build}${src} />`;
-      } else {
-        return `
-<${tag}${build}${src}></${tag}>`;
+      if (Object.keys(sizes).length > 0) {
+        const maxSize = Math.max(...Object.values(sizes));
+        fontSize = Object.keys(sizes).find((key) => sizes[key] === maxSize);
       }
+      if (Object.keys(lineHeights).length > 0) {
+        const maxLineHeight = Math.max(...Object.values(lineHeights));
+        lineHeight = Object.keys(lineHeights).find((key) => lineHeights[key] === maxLineHeight);
+      }
+      lineHeight = this.getTextLineHeight(lineHeight != null ? lineHeight : "initial", fontSize != null ? fontSize : "16px");
+      const cssStyles = `${fontSize ? `font-size: ${fontSize};` : ""} 
+					${lineHeight ? `line-height: ${lineHeight};` : ""}
+					${textAlign ? `text-align: ${textAlign}` : ""}
+					 %z-index%`;
+      content = `<div
+				    class="conteudo ${"elemento_texto" /* TEXT */}"
+				    style="${cssStyles}">
+							${content}
+						</div>`;
+      content = this.cleanInnerHtml(content);
+      const elementId = this.genElementId();
+      const css = `#e_%element-id% .c { ${cssStyles} } ${itemsCss.join(" ").replace(/strong:/, "b:")}`;
+      return {
+        id: elementId,
+        blockId: this.block.id,
+        boundingClientRect: {
+          desktop: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          },
+          mobile: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          }
+        },
+        classes: this.getElementClasses(elementId, "elemento_texto" /* TEXT */),
+        content: {
+          desktop: content,
+          mobile: content
+        },
+        css: {
+          desktop: css,
+          mobile: css
+        },
+        styles
+      };
     }
-    return children;
-  };
-  var htmlSection = async (node) => {
-    const childrenStr = await htmlWidgetGenerator(node.children);
-    const builder = new HtmlDefaultBuilder(node).size().position().applyFillsToStyle(node.fills, "background");
-    if (childrenStr) {
-      return `
-<div${builder.build()}>${indentString(childrenStr)}
-</div>`;
-    } else {
-      return `
-<div${builder.build()}></div>`;
+    getTextLineHeight(lineHeight, fontSize) {
+      if (lineHeight == "initial") return "1.2";
+      if (lineHeight.includes("px")) {
+        let floatLineHeight = parseFloat(lineHeight.replace("px", "")) / parseFloat(fontSize);
+        floatLineHeight = Math.ceil(floatLineHeight * 10) / 10;
+        if (floatLineHeight < 1) floatLineHeight = 1.2;
+        if (floatLineHeight > 2) floatLineHeight = 2;
+        lineHeight = lineHeight.toString();
+      }
+      return lineHeight;
     }
-  };
-  var htmlLine = (node) => {
-    const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
-    return `
-<div${builder.build()}></div>`;
+    async parseSectionElement(node) {
+      var _a;
+      const children = await this.parseElements(node.children);
+      const builder = new HtmlDefaultBuilder(node).size().position().applyFillsToStyle(node.fills, "background");
+      const styles = this.stylesToObj(builder.styles);
+      const cssStyle = `
+      opacity: 1;
+      border: 0px;
+      filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1) invert(0) sepia(0) blur(0px) grayscale(0);
+      border-radius: 0;
+      background-image: none;
+      background-size: "cover";
+      background-color: ${(_a = styles.desktop["background-color"]) != null ? _a : styles.desktop["background"] && !styles.desktop["background"].includes("url(") ? styles.desktop["background"] : "transparent"};
+    	background-position: "center";
+    	background-repeat: "no-repeat";
+      width: 100%;
+      height: ${node.height}px;
+		 	%z-index%`;
+      const css = `#e_%element-id% .c{${cssStyle}}`;
+      let innerHtml = `<div
+							class="conteudo ${"elemento_caixa" /* BOX */} ${"borda_igual" /* EQUAL_BORDER */} "
+							style="${cssStyle}"></div>`;
+      const id = this.genElementId();
+      innerHtml = this.cleanInnerHtml(innerHtml);
+      const section = {
+        id,
+        blockId: this.block.id,
+        boundingClientRect: {
+          desktop: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          },
+          mobile: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          }
+        },
+        classes: this.getElementClasses(id, "elemento_caixa" /* BOX */),
+        content: {
+          desktop: innerHtml,
+          mobile: innerHtml
+        },
+        css: {
+          desktop: css,
+          mobile: css
+        },
+        styles
+      };
+      return [...children, section];
+    }
+    async parseContainerElement(node) {
+      var _a, _b, _c, _d, _e, _f, _g, _h;
+      const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
+      let image = void 0;
+      if (builder.styles && nodeHasImageFill(node)) {
+        const altNode = node;
+        const hasChildren = "children" in node && node.children.length > 0;
+        const imgUrl = (_a = await exportNodeAsBase64PNG(altNode, hasChildren)) != null ? _a : "";
+        image = {
+          file: imgUrl,
+          dimensions: {
+            height: node.height,
+            width: node.width
+          }
+        };
+      }
+      const styles = this.stylesToObj(builder.styles);
+      const cssStyle = `
+      opacity: ${(_b = styles.desktop.opacity) != null ? _b : 1};
+      border: ${(_c = styles.desktop.border) != null ? _c : "0px"};
+      filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1) invert(0) sepia(0) blur(0px) grayscale(0);
+      border-radius: ${(_d = styles.desktop["borderRadius"]) != null ? _d : 0};
+      background-image: ${image ? `url(${image.file})` : "none"};
+      background-size: ${(_e = styles.desktop["background-size"]) != null ? _e : "cover"};
+      background-color: ${(_f = styles.desktop["background-color"]) != null ? _f : styles.desktop["background"] && !styles.desktop["background"].includes("url(") ? styles.desktop["background"] : "transparent"};
+    	background-position: ${(_g = styles.desktop["background-position"]) != null ? _g : "center"};
+    	background-repeat: ${(_h = styles.desktop["background-repeat"]) != null ? _h : "no-repeat"};
+      width: 100%;
+      height: ${node.height}px;
+		 	%z-index%`;
+      const css = `#e_%element-id% .c{${cssStyle}}`;
+      let innerHtml = `<div
+							class="conteudo ${"elemento_caixa" /* BOX */} ${"borda_igual" /* EQUAL_BORDER */} "
+							style="${cssStyle}"></div>`;
+      const id = this.genElementId();
+      innerHtml = this.cleanInnerHtml(innerHtml);
+      return {
+        id,
+        blockId: this.block.id,
+        boundingClientRect: {
+          desktop: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          },
+          mobile: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          }
+        },
+        classes: this.getElementClasses(id, "elemento_caixa" /* BOX */),
+        content: {
+          desktop: innerHtml,
+          mobile: innerHtml
+        },
+        css: {
+          desktop: css,
+          mobile: css
+        },
+        styles,
+        image
+      };
+    }
+    getElementClasses(elementId, elementClass) {
+      return `${"gpc-blocos_bloco_elemento" /* ELEMENT */} ${elementClass} |-| #${elementId}#`;
+    }
+    cleanInnerHtml(innerHtml) {
+      return innerHtml.replace(/\t/gi, "").replace(/\n/gi, " ").replace(/ *<div/gi, "<div").replace(/ *<\/div/gi, "</div").replace(/ *<img/gi, "<img").replace(/ *<label/gi, "<label").replace(/ *<\/label/gi, "</label").replace(/ *<input/gi, "<input").replace(/ *<h1/gi, "<h1").replace(/ *<\/h1/gi, "</h1").replace(/ *<h2/gi, "<h2").replace(/ *<\/h2/gi, "</h2").replace(/ *<h3/gi, "<h3").replace(/ *<\/h3/gi, "</h3").replace(/ *<h4/gi, "<h4").replace(/ *<\/h4/gi, "</h4").replace(/ *<h5/gi, "<h5").replace(/ *<\/h5/gi, "</h5").replace(/ *<h6/gi, "<h6").replace(/ *<\/h6/gi, "</h6").replace(/ *<span/gi, "<span").replace(/ *<\/span/gi, "</span").replace(/<span> */gi, "<span>").replace(/> *<p/gi, "><p").replace(/> */gi, ">").replace(/<\/span><span/gi, "</span> <span").replace(/<\/b>/gi, "</b> ").replace(/ {3}/gi, " ").replace(/ {2}/, " ");
+    }
   };
 
   // backend/node/processors/iconDetection.ts
@@ -1517,7 +1771,10 @@ ${node.svg ?? ""}</div>`;
           );
           if (visibleChildren.length === 0) {
             const hasVisibleFill = "fills" in node && Array.isArray(node.fills) && node.fills.some(
-              (f) => typeof f === "object" && f !== null && f.visible !== false && ("opacity" in f ? f.opacity ?? 1 : 1) > 0
+              (f) => {
+                var _a;
+                return typeof f === "object" && f !== null && f.visible !== false && ("opacity" in f ? (_a = f.opacity) != null ? _a : 1 : 1) > 0;
+              }
             );
             const hasVisibleStroke = "strokes" in node && Array.isArray(node.strokes) && node.strokes.some((s) => s.visible !== false);
             if (hasVisibleFill || hasVisibleStroke) {
@@ -1610,7 +1867,7 @@ ${node.svg ?? ""}</div>`;
         };
       })
     );
-    console.log("[debug] initial nodeJson", { ...nodes[0] });
+    console.log("[debug] initial nodeJson", __spreadValues({}, nodes[0]));
     console.log(`[benchmark][inside nodesToJSON] JSON_REST_V1 export: ${Date.now() - exportJsonStart}ms`);
     const processNodesStart = Date.now();
     const result = [];
@@ -1633,6 +1890,7 @@ ${node.svg ?? ""}</div>`;
     return result;
   };
   var processNodePair = async (jsonNode, figmaNode, parentNode, parentCumulativeRotation = 0) => {
+    var _a, _b;
     if (!jsonNode.id) return null;
     if (jsonNode.visible === false) return null;
     const nodeType = jsonNode.type;
@@ -1728,8 +1986,8 @@ ${node.svg ?? ""}</div>`;
           {
             width: jsonNode.absoluteBoundingBox.width,
             height: jsonNode.absoluteBoundingBox.height,
-            x: jsonNode.absoluteBoundingBox.x - (jsonNode.parent?.absoluteBoundingBox.x || 0),
-            y: jsonNode.absoluteBoundingBox.y - (jsonNode.parent?.absoluteBoundingBox.y || 0)
+            x: jsonNode.absoluteBoundingBox.x - (((_a = jsonNode.parent) == null ? void 0 : _a.absoluteBoundingBox.x) || 0),
+            y: jsonNode.absoluteBoundingBox.y - (((_b = jsonNode.parent) == null ? void 0 : _b.absoluteBoundingBox.y) || 0)
           },
           -((jsonNode.rotation || 0) + (jsonNode.cumulativeRotation || 0))
         );
@@ -1744,10 +2002,10 @@ ${node.svg ?? ""}</div>`;
         jsonNode.y = 0;
       }
     }
-    if (!parentNode?.canBeFlattened) {
+    if (!(parentNode == null ? void 0 : parentNode.canBeFlattened)) {
       const isIcon = isLikelyIcon(jsonNode);
       jsonNode.canBeFlattened = isIcon;
-      if (isIcon && settings.useColorVariables) {
+      if (isIcon) {
         jsonNode._collectColorMappings = true;
       }
     } else {
@@ -1863,22 +2121,29 @@ ${node.svg ?? ""}</div>`;
   });
   figma.loadAllPagesAsync();
   figma.ui.onmessage = (message) => {
+    console.log("[DEBUG] message received:", message);
     switch (message.type) {
       case "selectionInit" /* SelectionInit */: {
         const { node } = message.data;
-        runClone(node);
+        const sceneNode = figma.currentPage.findOne((n) => n.id === node.id);
+        runClone(sceneNode);
         break;
       }
       default:
         break;
     }
   };
+  var clonedFrame = {};
   async function runClone(node) {
     let convertedSelection;
     convertedSelection = await nodesToJSON([node]);
     console.log("nodeJson", convertedSelection);
-    console.log("[debug] convertedSelection", { ...convertedSelection[0] });
-    const code = await htmlMain(convertedSelection);
-    console.log("code", code);
+    console.log("[debug] convertedSelection", __spreadValues({}, convertedSelection[0]));
+    const blockBuilder = new BlockBuilder();
+    clonedFrame = await blockBuilder.build(convertedSelection[0]);
+    figma.ui.postMessage({
+      type: "conversionComplete" /* ConversionComplete */,
+      data: clonedFrame
+    });
   }
 })();

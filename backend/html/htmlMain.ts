@@ -1,6 +1,5 @@
 import { indentString } from "../common/indentString";
-import { HtmlTextBuilder } from "./htmlTextBuilder";
-import { HtmlDefaultBuilder } from "./htmlDefaultBuilder";
+import { HtmlDefaultBuilder, HtmlTextBuilder } from "./htmlDefaultBuilder";
 import { htmlAutoLayoutProps } from "./builderImpl/htmlAutoLayout";
 import { formatWithJSX } from "../common/parseJSX";
 import { getVisibleNodes } from "../common/nodeVisibility";
@@ -116,6 +115,8 @@ const convertNode = () => async (node: SceneNode) => {
 			return htmlWrapSVG(altNode);
 		}
 	}
+
+	console.log(node.type, node);
 
 	switch (node.type) {
 		case "RECTANGLE":

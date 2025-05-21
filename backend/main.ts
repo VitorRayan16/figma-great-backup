@@ -1,6 +1,7 @@
 // This plugin will open a window to prompt the user to enter a number, and
 // it will then create that many rectangles on the screen.
 
+import BlockBuilder from "./html/BlockBuilder";
 import { htmlMain } from "./html/htmlMain";
 import { MessageType, type Message } from "./interfaces/messages";
 import { nodesToJSON } from "./node/JsonNodeConversor";
@@ -47,10 +48,13 @@ figma.loadAllPagesAsync();
 // callback. The callback will be passed the "pluginMessage" property of the
 // posted message.
 figma.ui.onmessage = (message: Message) => {
+	console.log("[DEBUG] message received:", message);
+
 	switch (message.type) {
 		case MessageType.SelectionInit: {
 			const { node } = message.data;
-			runClone(node);
+			const sceneNode = figma.currentPage.findOne((n) => n.id === node.id);
+			runClone(sceneNode!);
 			break;
 		}
 		default:
@@ -68,12 +72,26 @@ async function runClone(node: SceneNode) {
 
 	console.log("[debug] convertedSelection", { ...convertedSelection[0] });
 
-	const code = await htmlMain(convertedSelection);
+	/**
+	 * Filtrar nodes visíveis
+	 * Em htmlmain:
+	 * 	const promiseOfConvertedCode = getVisibleNodes(sceneNode).map(convertNode());
+	 */
+	const blockBuilder = new BlockBuilder();
+
+	clonedFrame = await blockBuilder.build(convertedSelection[0]);
+
+	figma.ui.postMessage({
+		type: MessageType.ConversionComplete,
+		data: clonedFrame,
+	});
+
+	// const code = await htmlMain(convertedSelection);
 
 	// const colors = await retrieveGenericSolidUIColors();
 	// const gradients = await retrieveGenericLinearGradients();
 
-	console.log("code", code);
+	// console.log("code", code);
 
 	// postConversionComplete({
 	// 	code,

@@ -10,7 +10,7 @@ export const processColorWithVariable = (fill: {
 	opacity?: number;
 	variableColorName?: string;
 }): string => {
-	const opacity = fill.opacity ? fill.opacity : 1;
+	const opacity = fill.opacity ?? 1;
 
 	if (fill.variableColorName) {
 		const varName = fill.variableColorName;

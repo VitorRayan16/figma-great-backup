@@ -5,9 +5,9 @@
 	"type": "module",
 	"scripts": {
 		"dev": "concurrently \"tsc --watch\" \"vite build --watch\"",
-		"dev:main": "esbuild backend/main.ts --bundle --outfile=backend/main.js --watch",
+		"dev:main": "esbuild backend/main.ts --log-level=debug --bundle --outfile=backend/main.js --platform=browser --target=es2017 --watch --format=iife ",
 		"build": "tsc && vite build && npm run build:main",
-		"build:main": "esbuild backend/main.ts --bundle --outfile=backend/main.js",
+		"build:main": "esbuild backend/main.ts --bundle --outfile=backend/main.js --platform=browser --target=es2017 -format=iife --minify",
 		"lint": "eslint .",
 		"preview": "vite preview"
 	},

@@ -14,6 +14,7 @@ export const nodesToJSON = async (nodes: ReadonlyArray<SceneNode>): Promise<Node
 	nodeNameCounters.clear();
 	const exportJsonStart = Date.now();
 	// First get the JSON representation of nodes with rotation handling
+
 	const nodeResults = await Promise.all(
 		nodes.map(async (node) => {
 			// Export node to JSON
@@ -272,7 +273,7 @@ const processNodePair = async (
 		(jsonNode as any).canBeFlattened = isIcon;
 
 		// If this node will be flattened to SVG, collect its color variables
-		if (isIcon && settings.useColorVariables) {
+		if (isIcon) {
 			// Schedule color mapping collection after variable processing
 			(jsonNode as any)._collectColorMappings = true;
 		}

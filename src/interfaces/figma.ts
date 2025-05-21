@@ -2,6 +2,7 @@ export enum MessageType {
 	SelectionChange = "selectionchange",
 	IsSelected = "isSelected",
 	SelectionInit = "selectionInit",
+	ConversionComplete = "conversionComplete",
 }
 
 export interface Message {

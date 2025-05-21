@@ -33,6 +33,12 @@ function App() {
 					break;
 				}
 
+				case MessageType.ConversionComplete: {
+					setIsFrameSelected(false);
+					downloadJson(message.data);
+					break;
+				}
+
 				default:
 					break;
 			}
@@ -42,6 +48,20 @@ function App() {
 			window.onmessage = null;
 		};
 	}, []);
+
+	const downloadJson = (data: any) => {
+		const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+		const url = URL.createObjectURL(blob);
+
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "converted_frame.json";
+		a.click();
+
+		// Opcional: revoga o objeto após uso
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+		document.removeChild(a);
+	};
 
 	const initCloning = () => {
 		postMessage({
