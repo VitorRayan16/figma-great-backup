@@ -1,3 +1,5 @@
+import { toBase64 } from "js-base64";
+import { exportAsyncProxy } from "../common/exportAsyncProxy";
 import { exportNodeAsBase64PNG, nodeHasImageFill } from "../common/images";
 import { AltNode, ExportableNode } from "../interfaces/html";
 import BlockElement from "../interfaces/pageElements/BlockElement";
@@ -28,7 +30,9 @@ export default class BlockBuilder {
 		}
 
 		this.block = await this.parseBlock(node, additionalStyles);
-		this.elements = await this.parseElements(node.children as SceneNode[]);
+		this.elements = await this.parseElements(
+			(node.children as SceneNode[]).map((child) => ({ ...child, parent: { ...node, x: 0, y: 0 } })),
+		);
 
 		return {
 			block: this.block,
@@ -43,8 +47,6 @@ export default class BlockBuilder {
 		const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
 
 		if (!builder.styles && !additionalStyles) {
-			console.log("bloco no if", builder.styles, builder.data, builder.cssClassName);
-
 			return {
 				id: this.genBlockId(),
 				isPopup: false,
@@ -157,7 +159,6 @@ export default class BlockBuilder {
 
 		for (const element of nodes) {
 			const parsedElement = await this.parseElement(element);
-			// console.log("parsedElement", element.type, parsedElement);
 
 			if ((parsedElement as any).length || (parsedElement as any).length === 0) {
 				parsedElements.push(...(parsedElement as CommonPageElement[]));
@@ -168,27 +169,112 @@ export default class BlockBuilder {
 	}
 
 	private async parseElement(node: SceneNode): Promise<CommonPageElement | CommonPageElement[]> {
-		/**
-		 * TODO encaixar o filtro de elementos vazios
-		 */
+		if (node.visible === false) {
+			return [];
+		}
+
+		if (
+			(node.width <= 0 || node.height <= 0) &&
+			(node.type === "FRAME" ||
+				node.type === "RECTANGLE" ||
+				node.type === "ELLIPSE" ||
+				node.type === "COMPONENT" ||
+				node.type === "INSTANCE" ||
+				node.type === "COMPONENT_SET")
+		) {
+			return [];
+		}
+
 		// ignore the view when size is zero or less
-		// if (node.width <= 0 || node.height <= 0) {
-		//   return children;
-		// }
+
+		if (node.parent && node.parent.type === "FRAME")
+			console.log(
+				`[DEBUG]`,
+				node.type,
+				node.name,
+				{
+					relative: {
+						x: node.x,
+						y: node.y,
+						width: node.width,
+						height: node.height,
+					},
+					absolute: {
+						x: node.absoluteBoundingBox?.x,
+						y: node.absoluteBoundingBox?.y,
+						width: node.absoluteBoundingBox?.width,
+						height: node.absoluteBoundingBox?.height,
+					},
+				},
+				{
+					relative: {
+						x: node.parent?.x,
+						y: node.parent?.y,
+						width: node.parent?.width,
+						height: node.parent?.height,
+					},
+					absolute: {
+						x: node.parent?.absoluteBoundingBox?.x,
+						y: node.parent?.absoluteBoundingBox?.y,
+						width: node.parent?.absoluteBoundingBox?.width,
+						height: node.parent?.absoluteBoundingBox?.height,
+					},
+				},
+			);
+
+		// overflow hidden
+		if (
+			node.parent &&
+			node.parent.type === "FRAME" &&
+			node.parent.clipsContent &&
+			(node.x < 0 ||
+				node.y < 0 ||
+				node.x > node.parent.width ||
+				node.y > node.parent.height ||
+				node.x + node.width > node.parent.x + node.parent.width ||
+				node.y + node.height > node.parent.y + node.parent.height)
+		) {
+			console.log(`[DEBUG] ${node.type} node is out of bounds`);
+
+			return [];
+		}
+
+		if (node.parent && node.parent.type === "FRAME") {
+			node.x = node.x + node.parent.x;
+			node.y = node.y + node.parent.y;
+		}
+
+		if ((node as any).canBeFlattened) {
+			const altNode = await this.renderAndAttachSVG(node);
+
+			if (altNode.svg) {
+				const svg = await this.parseSvg(altNode);
+
+				console.log("svg", svg);
+
+				if (svg) {
+					return svg;
+				}
+			}
+		}
+
 		switch (node.type) {
 			case "RECTANGLE":
 			case "ELLIPSE":
 				return await this.parseContainerElement(node);
 			case "GROUP":
+				node = { ...node, children: node.children.map((child) => ({ ...child, parent: { ...node } })) };
 				return await this.parseElements(node.children as SceneNode[]);
 			case "FRAME":
 			case "COMPONENT":
 			case "INSTANCE":
-			case "COMPONENT_SET":
+			case "COMPONENT_SET": {
+				node = { ...node, children: node.children.map((child) => ({ ...child, parent: { ...node } })) };
 				return [
-					...(await this.parseElements(node.children as SceneNode[])),
 					await this.parseContainerElement(node),
+					...(await this.parseElements(node.children as SceneNode[])),
 				];
+			}
 			case "SECTION":
 				return await this.parseSectionElement(node);
 			case "TEXT":
@@ -196,9 +282,8 @@ export default class BlockBuilder {
 			case "LINE":
 				return this.parseLineElement(node);
 			case "VECTOR":
-				console.log(`[DEBUG] VECTOR node is not supported`);
-				// return await this.parseContainerElement({ ...node, type: "RECTANGLE" } as any);
-				return [];
+				return await this.parseContainerElement({ ...node, type: "RECTANGLE" } as any);
+			// return [];
 			default:
 				console.log(`[DEBUG] ${node.type} node is not supported`);
 				return [];
@@ -254,6 +339,81 @@ export default class BlockBuilder {
 		};
 	}
 
+	private async parseSvg(node: SceneNode): Promise<CommonPageElement | undefined> {
+		if ((node as any).svg === "") return;
+
+		const builder = new HtmlDefaultBuilder(node).addData("svg-wrapper").commonPositionStyles().commonShapeStyles();
+
+		const image: ElementImage | undefined = {
+			file: `data:image/svg+xml;base64,${toBase64(node.svg)}`,
+			dimensions: {
+				height: node.height,
+				width: node.width,
+			},
+		};
+
+		const styles = this.stylesToObj(builder.styles);
+
+		const cssStyle = `
+      opacity: ${styles.desktop.opacity ?? 1};
+      border: ${styles.desktop.border ?? "0px"};
+      filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1) invert(0) sepia(0) blur(0px) grayscale(0);
+      border-radius: ${styles.desktop["border-radius"] ?? 0};
+      background-image: ${image ? `url(${image.file})` : "none"};
+      background-size: ${styles.desktop["background-size"] ?? "cover"};
+      background-color: ${
+			styles.desktop["background-color"] ??
+			(styles.desktop["background"] && !styles.desktop["background"].includes("url(")
+				? styles.desktop["background"]
+				: "transparent")
+		};
+    	background-position: ${styles.desktop["background-position"] ?? "center"};
+    	background-repeat: ${styles.desktop["background-repeat"] ?? "no-repeat"};
+      width: 100%;
+      height: ${node.height}px;
+		 	%z-index%`;
+
+		const css = `#e_%element-id% .c{${cssStyle}}`;
+
+		let innerHtml = `<div
+							class=\"conteudo ${GreatClasses.BOX} ${GreatClasses.EQUAL_BORDER} \"
+							style=\"${cssStyle}\"></div>`;
+
+		const id = this.genElementId();
+
+		innerHtml = this.cleanInnerHtml(innerHtml);
+
+		return {
+			id: id,
+			blockId: this.block!.id,
+			boundingClientRect: {
+				desktop: {
+					width: node.width,
+					height: node.height,
+					left: +styles.desktop.left.replace("px", ""),
+					top: +styles.desktop.top.replace("px", ""),
+				},
+				mobile: {
+					width: node.width,
+					height: node.height,
+					left: +styles.desktop.left.replace("px", ""),
+					top: +styles.desktop.top.replace("px", ""),
+				},
+			},
+			classes: this.getElementClasses(id, GreatClasses.BOX),
+			content: {
+				desktop: innerHtml,
+				mobile: innerHtml,
+			},
+			css: {
+				desktop: css,
+				mobile: css,
+			},
+			styles: styles,
+			image,
+		};
+	}
+
 	private async parseTextElement(node: SceneNode): Promise<CommonPageElement> {
 		const layoutBuilder = new HtmlTextBuilder(node as TextNode)
 			.commonPositionStyles()
@@ -274,12 +434,22 @@ export default class BlockBuilder {
 			extractedStyles.push(styleObj);
 
 			if (styleObj.color) {
-				itemsCss.push(
-					`#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1){ color: ${styleObj.color}; }`,
-				);
+				if (+styleObj["font-weight"] >= 700) {
+					itemsCss.push(
+						`#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1) b:nth-of-type(1) { color: ${styleObj.color}; }`,
+					);
+				} else {
+					itemsCss.push(
+						`#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1){ color: ${styleObj.color}; }`,
+					);
+				}
 			}
 
-			content = `<span>${styledHtml[0].text}</span>`;
+			if (+styleObj["font-weight"] >= 700) {
+				content = `<span><b>${styledHtml[0].text}</b></span>`;
+			} else {
+				content = `<span>${styledHtml[0].text}</span>`;
+			}
 		} else {
 			content = styledHtml
 				.map((style, index) => {
@@ -287,14 +457,30 @@ export default class BlockBuilder {
 					extractedStyles.push(styleObj);
 
 					if (styleObj.color) {
-						itemsCss.push(
-							`#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(${index + 1}){ color: ${
-								styleObj.color
-							}; }`,
-						);
+						if (+styleObj["font-weight"] >= 700) {
+							itemsCss.push(
+								`#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(${
+									index + 1
+								}) b:nth-of-type(1) { color: ${styleObj.color}; }`,
+							);
+						} else {
+							itemsCss.push(
+								`#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(${index + 1}){ color: ${
+									styleObj.color
+								}; }`,
+							);
+						}
 					}
 
-					return `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}>${style.text}</span>`;
+					if (+styleObj["font-weight"] >= 700) {
+						return `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}><b>${
+							style.text
+						}</b></span>`;
+					} else {
+						return `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}>${
+							style.text
+						}</span>`;
+					}
 				})
 				.join("");
 		}
@@ -369,13 +555,13 @@ export default class BlockBuilder {
 				desktop: {
 					width: node.width,
 					height: node.height,
-					left: +styles.desktop.left.replace("px", ""),
+					left: +styles.desktop.left.replace("px", "") - 3,
 					top: +styles.desktop.top.replace("px", ""),
 				},
 				mobile: {
 					width: node.width,
 					height: node.height,
-					left: +styles.desktop.left.replace("px", ""),
+					left: +styles.desktop.left.replace("px", "") - 3,
 					top: +styles.desktop.top.replace("px", ""),
 				},
 			},
@@ -503,7 +689,7 @@ export default class BlockBuilder {
       opacity: ${styles.desktop.opacity ?? 1};
       border: ${styles.desktop.border ?? "0px"};
       filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1) invert(0) sepia(0) blur(0px) grayscale(0);
-      border-radius: ${styles.desktop["borderRadius"] ?? 0};
+      border-radius: ${styles.desktop["border-radius"] ?? 0};
       background-image: ${image ? `url(${image.file})` : "none"};
       background-size: ${styles.desktop["background-size"] ?? "cover"};
       background-color: ${
@@ -527,6 +713,23 @@ export default class BlockBuilder {
 		const id = this.genElementId();
 
 		innerHtml = this.cleanInnerHtml(innerHtml);
+
+		console.log(node.name, node.type, node.parent?.name, node.parent?.type, {
+			boundingClientRect: {
+				desktop: {
+					width: node.width,
+					height: node.height,
+					left: +styles.desktop.left.replace("px", ""),
+					top: +styles.desktop.top.replace("px", ""),
+				},
+				mobile: {
+					width: node.width,
+					height: node.height,
+					left: +styles.desktop.left.replace("px", ""),
+					top: +styles.desktop.top.replace("px", ""),
+				},
+			},
+		});
 
 		return {
 			id: id,
@@ -564,35 +767,102 @@ export default class BlockBuilder {
 	}
 
 	private cleanInnerHtml(innerHtml: string): string {
-		return innerHtml
-			.replace(/\t/gi, "")
-			.replace(/\n/gi, " ")
-			.replace(/ *<div/gi, "<div")
-			.replace(/ *<\/div/gi, "</div")
-			.replace(/ *<img/gi, "<img")
-			.replace(/ *<label/gi, "<label")
-			.replace(/ *<\/label/gi, "</label")
-			.replace(/ *<input/gi, "<input")
-			.replace(/ *<h1/gi, "<h1")
-			.replace(/ *<\/h1/gi, "</h1")
-			.replace(/ *<h2/gi, "<h2")
-			.replace(/ *<\/h2/gi, "</h2")
-			.replace(/ *<h3/gi, "<h3")
-			.replace(/ *<\/h3/gi, "</h3")
-			.replace(/ *<h4/gi, "<h4")
-			.replace(/ *<\/h4/gi, "</h4")
-			.replace(/ *<h5/gi, "<h5")
-			.replace(/ *<\/h5/gi, "</h5")
-			.replace(/ *<h6/gi, "<h6")
-			.replace(/ *<\/h6/gi, "</h6")
-			.replace(/ *<span/gi, "<span")
-			.replace(/ *<\/span/gi, "</span")
-			.replace(/<span> */gi, "<span>")
-			.replace(/> *<p/gi, "><p")
-			.replace(/> */gi, ">")
-			.replace(/<\/span><span/gi, "</span> <span")
-			.replace(/<\/b>/gi, "</b> ")
-			.replace(/ {3}/gi, " ")
-			.replace(/ {2}/, " ");
+		return (
+			innerHtml
+				.replace(/\t/gi, "")
+				.replace(/\n/gi, " ")
+				.replace(/ *<div/gi, "<div")
+				.replace(/ *<\/div/gi, "</div")
+				.replace(/ *<img/gi, "<img")
+				.replace(/ *<label/gi, "<label")
+				.replace(/ *<\/label/gi, "</label")
+				.replace(/ *<input/gi, "<input")
+				.replace(/ *<h1/gi, "<h1")
+				.replace(/ *<\/h1/gi, "</h1")
+				.replace(/ *<h2/gi, "<h2")
+				.replace(/ *<\/h2/gi, "</h2")
+				.replace(/ *<h3/gi, "<h3")
+				.replace(/ *<\/h3/gi, "</h3")
+				.replace(/ *<h4/gi, "<h4")
+				.replace(/ *<\/h4/gi, "</h4")
+				.replace(/ *<h5/gi, "<h5")
+				.replace(/ *<\/h5/gi, "</h5")
+				.replace(/ *<h6/gi, "<h6")
+				.replace(/ *<\/h6/gi, "</h6")
+				.replace(/ *<span/gi, "<span")
+				.replace(/ *<\/span/gi, "</span")
+				.replace(/<span> */gi, "<span>")
+				.replace(/> *<p/gi, "><p")
+				.replace(/> */gi, ">")
+				// .replace(/<\/span><span/gi, "</span> <span")
+				// .replace(/<\/b>/gi, "</b> ")
+				.replace(/ {3}/gi, " ")
+				.replace(/ {2}/, " ")
+		);
+	}
+
+	private async renderAndAttachSVG(node: any) {
+		if (node.canBeFlattened) {
+			if (node.svg) {
+				return node;
+			}
+
+			try {
+				const svg = (await exportAsyncProxy<string>(node, {
+					format: "SVG_STRING",
+				})) as string;
+
+				// Process the SVG to replace colors with variable references
+				if (node.colorVariableMappings && node.colorVariableMappings.size > 0) {
+					let processedSvg = svg;
+
+					// Replace fill="COLOR" or stroke="COLOR" patterns
+					const colorAttributeRegex = /(fill|stroke)="([^"]*)"/g;
+
+					processedSvg = processedSvg.replace(colorAttributeRegex, (match, attribute, colorValue) => {
+						// Clean up the color value and normalize it
+						const normalizedColor = colorValue.toLowerCase().trim();
+
+						// Look up the color directly in our mappings
+						const mapping = node.colorVariableMappings.get(normalizedColor);
+						if (mapping) {
+							// If we have a variable reference, use it with fallback to original
+							return `${attribute}="var(--${mapping.variableName}, ${colorValue})"`;
+						}
+
+						// Otherwise keep the original color
+						return match;
+					});
+
+					// Also handle style attributes with fill: or stroke: properties
+					const styleRegex = /style="([^"]*)(?:(fill|stroke):\s*([^;"]*))(;|\s|")([^"]*)"/g;
+
+					processedSvg = processedSvg.replace(
+						styleRegex,
+						(match, prefix, property, colorValue, separator, suffix) => {
+							// Clean up any extra spaces from the color value
+							const normalizedColor = colorValue.toLowerCase().trim();
+
+							// Look up the color directly in our mappings
+							const mapping = node.colorVariableMappings.get(normalizedColor);
+							if (mapping) {
+								// Replace just the color value with the variable and fallback
+								return `style="${prefix}${property}: var(--${mapping.variableName}, ${colorValue})${separator}${suffix}"`;
+							}
+
+							return match;
+						},
+					);
+
+					node.svg = processedSvg;
+				} else {
+					node.svg = svg;
+				}
+			} catch (error) {
+				console.error(`Error rendering SVG for ${node.type}:${node.id}`);
+				console.error(error);
+			}
+		}
+		return node;
 	}
 }

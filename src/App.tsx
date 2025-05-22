@@ -7,12 +7,12 @@ import { postMessage } from "./messaging";
 function App() {
 	const [isFrameSelected, setIsFrameSelected] = useState(false);
 	const [warningMessage, setWarningMessage] = useState("");
-	const [currentSelection, setCurrentSelection] = useState<null | SceneNode>(null);
+	const [currentSelection, setCurrentSelection] = useState<null | any>(null);
 
 	useEffect(() => {
 		window.onmessage = (event: MessageEvent) => {
 			const message = event.data.pluginMessage as Message;
-			console.log("[ui] message received:", message);
+			// console.log("[ui] message received:", message, message.type);
 
 			switch (message.type) {
 				case MessageType.SelectionChange: {
@@ -60,10 +60,11 @@ function App() {
 
 		// Opcional: revoga o objeto após uso
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
-		document.removeChild(a);
 	};
 
 	const initCloning = () => {
+		console.log("[ui] initCloning", currentSelection);
+
 		postMessage({
 			type: MessageType.SelectionInit,
 			data: { node: currentSelection! },

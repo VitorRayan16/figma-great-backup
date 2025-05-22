@@ -136,16 +136,16 @@ export class HtmlDefaultBuilder {
 
 	position(): this {
 		const { node } = this;
-		const isAbsolutePosition = commonIsAbsolutePosition(node);
-		if (isAbsolutePosition) {
-			const { x, y } = getCommonPositionValue(node);
+		// const isAbsolutePosition = commonIsAbsolutePosition(node);
+		// if (isAbsolutePosition) {
+		const { x, y } = getCommonPositionValue(node);
 
-			this.addStyles(formatWithJSX("left", x), formatWithJSX("top", y), formatWithJSX("position", "absolute"));
-		} else {
-			if (node.type === "GROUP" || (node as any).isRelative) {
-				this.addStyles(formatWithJSX("position", "relative"));
-			}
-		}
+		this.addStyles(formatWithJSX("left", x), formatWithJSX("top", y), formatWithJSX("position", "absolute"));
+		// } else {
+		// 	if (node.type === "GROUP" || (node as any).isRelative) {
+		// 		this.addStyles(formatWithJSX("position", "relative"));
+		// 	}
+		// }
 
 		return this;
 	}

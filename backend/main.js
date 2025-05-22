@@ -1,5 +1,7 @@
 (() => {
   var __defProp = Object.defineProperty;
+  var __defProps = Object.defineProperties;
+  var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
   var __getOwnPropSymbols = Object.getOwnPropertySymbols;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __propIsEnum = Object.prototype.propertyIsEnumerable;
@@ -15,6 +17,7 @@
       }
     return a;
   };
+  var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
   // node_modules/js-base64/base64.mjs
@@ -30,6 +33,7 @@
   })(b64chs);
   var _fromCC = String.fromCharCode.bind(String);
   var _U8Afrom = typeof Uint8Array.from === "function" ? Uint8Array.from.bind(Uint8Array) : (it) => new Uint8Array(Array.prototype.slice.call(it, 0));
+  var _mkUriSafe = (src) => src.replace(/=/g, "").replace(/[+\/]/g, (m0) => m0 == "+" ? "-" : "_");
   var btoaPolyfill = (bin) => {
     let u32, c0, c1, c2, asc = "";
     const pad = bin.length % 3;
@@ -42,15 +46,27 @@
     return pad ? asc.slice(0, pad - 3) + "===".substring(pad) : asc;
   };
   var _btoa = typeof btoa === "function" ? (bin) => btoa(bin) : _hasBuffer ? (bin) => Buffer.from(bin, "binary").toString("base64") : btoaPolyfill;
-
-  // backend/common/commonConversionWarnings.ts
-  var warnings = /* @__PURE__ */ new Set();
-  var addWarning = (warning) => {
-    if (warnings.has(warning) === false) {
-      console.warn(warning);
+  var _fromUint8Array = _hasBuffer ? (u8a) => Buffer.from(u8a).toString("base64") : (u8a) => {
+    const maxargs = 4096;
+    let strs = [];
+    for (let i = 0, l = u8a.length; i < l; i += maxargs) {
+      strs.push(_fromCC.apply(null, u8a.subarray(i, i + maxargs)));
     }
-    warnings.add(warning);
+    return _btoa(strs.join(""));
   };
+  var cb_utob = (c) => {
+    if (c.length < 2) {
+      var cc = c.charCodeAt(0);
+      return cc < 128 ? c : cc < 2048 ? _fromCC(192 | cc >>> 6) + _fromCC(128 | cc & 63) : _fromCC(224 | cc >>> 12 & 15) + _fromCC(128 | cc >>> 6 & 63) + _fromCC(128 | cc & 63);
+    } else {
+      var cc = 65536 + (c.charCodeAt(0) - 55296) * 1024 + (c.charCodeAt(1) - 56320);
+      return _fromCC(240 | cc >>> 18 & 7) + _fromCC(128 | cc >>> 12 & 63) + _fromCC(128 | cc >>> 6 & 63) + _fromCC(128 | cc & 63);
+    }
+  };
+  var re_utob = /[\uD800-\uDBFF][\uDC00-\uDFFFF]|[^\x00-\x7F]/g;
+  var utob = (u) => u.replace(re_utob, cb_utob);
+  var _encode = _hasBuffer ? (s) => Buffer.from(s, "utf8").toString("base64") : _TE ? (s) => _fromUint8Array(_TE.encode(s)) : (s) => _btoa(utob(s));
+  var encode = (src, urlsafe = false) => urlsafe ? _mkUriSafe(_encode(src)) : _encode(src);
 
   // backend/common/exportAsyncProxy.ts
   var isRunning = false;
@@ -73,6 +89,15 @@
     }
     isRunning = false;
     return result;
+  };
+
+  // backend/common/commonConversionWarnings.ts
+  var warnings = /* @__PURE__ */ new Set();
+  var addWarning = (warning) => {
+    if (warnings.has(warning) === false) {
+      console.warn(warning);
+    }
+    warnings.add(warning);
   };
 
   // backend/common/images.ts
@@ -696,38 +721,11 @@
   };
 
   // backend/common/commonPosition.ts
-  var getCommonPositionValue = (node, settings) => {
-    if (node.parent && node.parent.absoluteBoundingBox) {
-      if ((settings == null ? void 0 : settings.embedVectors) && node.svg) {
-        return {
-          x: node.absoluteBoundingBox.x - node.parent.absoluteBoundingBox.x,
-          y: node.absoluteBoundingBox.y - node.parent.absoluteBoundingBox.y
-        };
-      }
-      return { x: node.x, y: node.y };
-    }
-    if (node.parent && node.parent.type === "GROUP") {
-      return {
-        x: node.x - node.parent.x,
-        y: node.y - node.parent.y
-      };
-    }
+  var getCommonPositionValue = (node) => {
     return {
       x: node.x,
       y: node.y
     };
-  };
-  var commonIsAbsolutePosition = (node) => {
-    if ("layoutPositioning" in node && node.layoutPositioning === "ABSOLUTE") {
-      return true;
-    }
-    if (!node.parent || node.parent === void 0) {
-      return false;
-    }
-    if ("layoutMode" in node.parent && node.parent.layoutMode === "NONE" || !("layoutMode" in node.parent)) {
-      return true;
-    }
-    return false;
   };
 
   // backend/common/commonStroke.ts
@@ -888,15 +886,8 @@
     }
     position() {
       const { node } = this;
-      const isAbsolutePosition = commonIsAbsolutePosition(node);
-      if (isAbsolutePosition) {
-        const { x, y } = getCommonPositionValue(node);
-        this.addStyles(formatWithJSX("left", x), formatWithJSX("top", y), formatWithJSX("position", "absolute"));
-      } else {
-        if (node.type === "GROUP" || node.isRelative) {
-          this.addStyles(formatWithJSX("position", "relative"));
-        }
-      }
+      const { x, y } = getCommonPositionValue(node);
+      this.addStyles(formatWithJSX("left", x), formatWithJSX("top", y), formatWithJSX("position", "absolute"));
       return this;
     }
     applyFillsToStyle(paintArray, property) {
@@ -1213,7 +1204,9 @@
         additionalStyles = htmlAutoLayoutProps(node);
       }
       this.block = await this.parseBlock(node, additionalStyles);
-      this.elements = await this.parseElements(node.children);
+      this.elements = await this.parseElements(
+        node.children.map((child) => __spreadProps(__spreadValues({}, child), { parent: __spreadProps(__spreadValues({}, node), { x: 0, y: 0 }) }))
+      );
       return {
         block: this.block,
         elements: this.elements
@@ -1223,7 +1216,6 @@
       var _a;
       const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
       if (!builder.styles && !additionalStyles) {
-        console.log("bloco no if", builder.styles, builder.data, builder.cssClassName);
         return {
           id: this.genBlockId(),
           isPopup: false,
@@ -1330,20 +1322,82 @@
       return parsedElements;
     }
     async parseElement(node) {
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
+      if (node.visible === false) {
+        return [];
+      }
+      if ((node.width <= 0 || node.height <= 0) && (node.type === "FRAME" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "COMPONENT" || node.type === "INSTANCE" || node.type === "COMPONENT_SET")) {
+        return [];
+      }
+      if (node.parent && node.parent.type === "FRAME")
+        console.log(
+          `[DEBUG]`,
+          node.type,
+          node.name,
+          {
+            relative: {
+              x: node.x,
+              y: node.y,
+              width: node.width,
+              height: node.height
+            },
+            absolute: {
+              x: (_a = node.absoluteBoundingBox) == null ? void 0 : _a.x,
+              y: (_b = node.absoluteBoundingBox) == null ? void 0 : _b.y,
+              width: (_c = node.absoluteBoundingBox) == null ? void 0 : _c.width,
+              height: (_d = node.absoluteBoundingBox) == null ? void 0 : _d.height
+            }
+          },
+          {
+            relative: {
+              x: (_e = node.parent) == null ? void 0 : _e.x,
+              y: (_f = node.parent) == null ? void 0 : _f.y,
+              width: (_g = node.parent) == null ? void 0 : _g.width,
+              height: (_h = node.parent) == null ? void 0 : _h.height
+            },
+            absolute: {
+              x: (_j = (_i = node.parent) == null ? void 0 : _i.absoluteBoundingBox) == null ? void 0 : _j.x,
+              y: (_l = (_k = node.parent) == null ? void 0 : _k.absoluteBoundingBox) == null ? void 0 : _l.y,
+              width: (_n = (_m = node.parent) == null ? void 0 : _m.absoluteBoundingBox) == null ? void 0 : _n.width,
+              height: (_p = (_o = node.parent) == null ? void 0 : _o.absoluteBoundingBox) == null ? void 0 : _p.height
+            }
+          }
+        );
+      if (node.parent && node.parent.type === "FRAME" && node.parent.clipsContent && (node.x < 0 || node.y < 0 || node.x > node.parent.width || node.y > node.parent.height || node.x + node.width > node.parent.x + node.parent.width || node.y + node.height > node.parent.y + node.parent.height)) {
+        console.log(`[DEBUG] ${node.type} node is out of bounds`);
+        return [];
+      }
+      if (node.parent && node.parent.type === "FRAME") {
+        node.x = node.x + node.parent.x;
+        node.y = node.y + node.parent.y;
+      }
+      if (node.canBeFlattened) {
+        const altNode = await this.renderAndAttachSVG(node);
+        if (altNode.svg) {
+          const svg = await this.parseSvg(altNode);
+          console.log("svg", svg);
+          if (svg) {
+            return svg;
+          }
+        }
+      }
       switch (node.type) {
         case "RECTANGLE":
         case "ELLIPSE":
           return await this.parseContainerElement(node);
         case "GROUP":
+          node = __spreadProps(__spreadValues({}, node), { children: node.children.map((child) => __spreadProps(__spreadValues({}, child), { parent: __spreadValues({}, node) })) });
           return await this.parseElements(node.children);
         case "FRAME":
         case "COMPONENT":
         case "INSTANCE":
-        case "COMPONENT_SET":
+        case "COMPONENT_SET": {
+          node = __spreadProps(__spreadValues({}, node), { children: node.children.map((child) => __spreadProps(__spreadValues({}, child), { parent: __spreadValues({}, node) })) });
           return [
-            ...await this.parseElements(node.children),
-            await this.parseContainerElement(node)
+            await this.parseContainerElement(node),
+            ...await this.parseElements(node.children)
           ];
+        }
         case "SECTION":
           return await this.parseSectionElement(node);
         case "TEXT":
@@ -1351,8 +1405,8 @@
         case "LINE":
           return this.parseLineElement(node);
         case "VECTOR":
-          console.log(`[DEBUG] VECTOR node is not supported`);
-          return [];
+          return await this.parseContainerElement(__spreadProps(__spreadValues({}, node), { type: "RECTANGLE" }));
+        // return [];
         default:
           console.log(`[DEBUG] ${node.type} node is not supported`);
           return [];
@@ -1399,6 +1453,67 @@
         styles
       };
     }
+    async parseSvg(node) {
+      var _a, _b, _c, _d, _e, _f, _g;
+      if (node.svg === "") return;
+      const builder = new HtmlDefaultBuilder(node).addData("svg-wrapper").commonPositionStyles().commonShapeStyles();
+      const image = {
+        file: `data:image/svg+xml;base64,${encode(node.svg)}`,
+        dimensions: {
+          height: node.height,
+          width: node.width
+        }
+      };
+      const styles = this.stylesToObj(builder.styles);
+      const cssStyle = `
+      opacity: ${(_a = styles.desktop.opacity) != null ? _a : 1};
+      border: ${(_b = styles.desktop.border) != null ? _b : "0px"};
+      filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1) invert(0) sepia(0) blur(0px) grayscale(0);
+      border-radius: ${(_c = styles.desktop["border-radius"]) != null ? _c : 0};
+      background-image: ${image ? `url(${image.file})` : "none"};
+      background-size: ${(_d = styles.desktop["background-size"]) != null ? _d : "cover"};
+      background-color: ${(_e = styles.desktop["background-color"]) != null ? _e : styles.desktop["background"] && !styles.desktop["background"].includes("url(") ? styles.desktop["background"] : "transparent"};
+    	background-position: ${(_f = styles.desktop["background-position"]) != null ? _f : "center"};
+    	background-repeat: ${(_g = styles.desktop["background-repeat"]) != null ? _g : "no-repeat"};
+      width: 100%;
+      height: ${node.height}px;
+		 	%z-index%`;
+      const css = `#e_%element-id% .c{${cssStyle}}`;
+      let innerHtml = `<div
+							class="conteudo ${"elemento_caixa" /* BOX */} ${"borda_igual" /* EQUAL_BORDER */} "
+							style="${cssStyle}"></div>`;
+      const id = this.genElementId();
+      innerHtml = this.cleanInnerHtml(innerHtml);
+      return {
+        id,
+        blockId: this.block.id,
+        boundingClientRect: {
+          desktop: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          },
+          mobile: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          }
+        },
+        classes: this.getElementClasses(id, "elemento_caixa" /* BOX */),
+        content: {
+          desktop: innerHtml,
+          mobile: innerHtml
+        },
+        css: {
+          desktop: css,
+          mobile: css
+        },
+        styles,
+        image
+      };
+    }
     async parseTextElement(node) {
       const layoutBuilder = new HtmlTextBuilder(node).commonPositionStyles().textTrim().textAlignHorizontal().textAlignVertical();
       const styledHtml = layoutBuilder.getTextSegments(node);
@@ -1410,21 +1525,41 @@
         const styleObj = this.stylesToObj(styledHtml[0].style.split(";")).desktop;
         extractedStyles.push(styleObj);
         if (styleObj.color) {
-          itemsCss.push(
-            `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1){ color: ${styleObj.color}; }`
-          );
+          if (+styleObj["font-weight"] >= 700) {
+            itemsCss.push(
+              `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1) b:nth-of-type(1) { color: ${styleObj.color}; }`
+            );
+          } else {
+            itemsCss.push(
+              `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1){ color: ${styleObj.color}; }`
+            );
+          }
         }
-        content = `<span>${styledHtml[0].text}</span>`;
+        if (+styleObj["font-weight"] >= 700) {
+          content = `<span><b>${styledHtml[0].text}</b></span>`;
+        } else {
+          content = `<span>${styledHtml[0].text}</span>`;
+        }
       } else {
         content = styledHtml.map((style, index) => {
           const styleObj = this.stylesToObj(style.style.split(";")).desktop;
           extractedStyles.push(styleObj);
           if (styleObj.color) {
-            itemsCss.push(
-              `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(${index + 1}){ color: ${styleObj.color}; }`
-            );
+            if (+styleObj["font-weight"] >= 700) {
+              itemsCss.push(
+                `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(${index + 1}) b:nth-of-type(1) { color: ${styleObj.color}; }`
+              );
+            } else {
+              itemsCss.push(
+                `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(${index + 1}){ color: ${styleObj.color}; }`
+              );
+            }
           }
-          return `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}>${style.text}</span>`;
+          if (+styleObj["font-weight"] >= 700) {
+            return `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}><b>${style.text}</b></span>`;
+          } else {
+            return `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}>${style.text}</span>`;
+          }
         }).join("");
       }
       content = content.replace(/<s>/g, "<strike>").replace(/<\/s>/, "</strike>");
@@ -1482,13 +1617,13 @@
           desktop: {
             width: node.width,
             height: node.height,
-            left: +styles.desktop.left.replace("px", ""),
+            left: +styles.desktop.left.replace("px", "") - 3,
             top: +styles.desktop.top.replace("px", "")
           },
           mobile: {
             width: node.width,
             height: node.height,
-            left: +styles.desktop.left.replace("px", ""),
+            left: +styles.desktop.left.replace("px", "") - 3,
             top: +styles.desktop.top.replace("px", "")
           }
         },
@@ -1570,7 +1705,7 @@
       return [...children, section];
     }
     async parseContainerElement(node) {
-      var _a, _b, _c, _d, _e, _f, _g, _h;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
       const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
       let image = void 0;
       if (builder.styles && nodeHasImageFill(node)) {
@@ -1590,7 +1725,7 @@
       opacity: ${(_b = styles.desktop.opacity) != null ? _b : 1};
       border: ${(_c = styles.desktop.border) != null ? _c : "0px"};
       filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1) invert(0) sepia(0) blur(0px) grayscale(0);
-      border-radius: ${(_d = styles.desktop["borderRadius"]) != null ? _d : 0};
+      border-radius: ${(_d = styles.desktop["border-radius"]) != null ? _d : 0};
       background-image: ${image ? `url(${image.file})` : "none"};
       background-size: ${(_e = styles.desktop["background-size"]) != null ? _e : "cover"};
       background-color: ${(_f = styles.desktop["background-color"]) != null ? _f : styles.desktop["background"] && !styles.desktop["background"].includes("url(") ? styles.desktop["background"] : "transparent"};
@@ -1605,6 +1740,22 @@
 							style="${cssStyle}"></div>`;
       const id = this.genElementId();
       innerHtml = this.cleanInnerHtml(innerHtml);
+      console.log(node.name, node.type, (_i = node.parent) == null ? void 0 : _i.name, (_j = node.parent) == null ? void 0 : _j.type, {
+        boundingClientRect: {
+          desktop: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          },
+          mobile: {
+            width: node.width,
+            height: node.height,
+            left: +styles.desktop.left.replace("px", ""),
+            top: +styles.desktop.top.replace("px", "")
+          }
+        }
+      });
       return {
         id,
         blockId: this.block.id,
@@ -1639,7 +1790,50 @@
       return `${"gpc-blocos_bloco_elemento" /* ELEMENT */} ${elementClass} |-| #${elementId}#`;
     }
     cleanInnerHtml(innerHtml) {
-      return innerHtml.replace(/\t/gi, "").replace(/\n/gi, " ").replace(/ *<div/gi, "<div").replace(/ *<\/div/gi, "</div").replace(/ *<img/gi, "<img").replace(/ *<label/gi, "<label").replace(/ *<\/label/gi, "</label").replace(/ *<input/gi, "<input").replace(/ *<h1/gi, "<h1").replace(/ *<\/h1/gi, "</h1").replace(/ *<h2/gi, "<h2").replace(/ *<\/h2/gi, "</h2").replace(/ *<h3/gi, "<h3").replace(/ *<\/h3/gi, "</h3").replace(/ *<h4/gi, "<h4").replace(/ *<\/h4/gi, "</h4").replace(/ *<h5/gi, "<h5").replace(/ *<\/h5/gi, "</h5").replace(/ *<h6/gi, "<h6").replace(/ *<\/h6/gi, "</h6").replace(/ *<span/gi, "<span").replace(/ *<\/span/gi, "</span").replace(/<span> */gi, "<span>").replace(/> *<p/gi, "><p").replace(/> */gi, ">").replace(/<\/span><span/gi, "</span> <span").replace(/<\/b>/gi, "</b> ").replace(/ {3}/gi, " ").replace(/ {2}/, " ");
+      return innerHtml.replace(/\t/gi, "").replace(/\n/gi, " ").replace(/ *<div/gi, "<div").replace(/ *<\/div/gi, "</div").replace(/ *<img/gi, "<img").replace(/ *<label/gi, "<label").replace(/ *<\/label/gi, "</label").replace(/ *<input/gi, "<input").replace(/ *<h1/gi, "<h1").replace(/ *<\/h1/gi, "</h1").replace(/ *<h2/gi, "<h2").replace(/ *<\/h2/gi, "</h2").replace(/ *<h3/gi, "<h3").replace(/ *<\/h3/gi, "</h3").replace(/ *<h4/gi, "<h4").replace(/ *<\/h4/gi, "</h4").replace(/ *<h5/gi, "<h5").replace(/ *<\/h5/gi, "</h5").replace(/ *<h6/gi, "<h6").replace(/ *<\/h6/gi, "</h6").replace(/ *<span/gi, "<span").replace(/ *<\/span/gi, "</span").replace(/<span> */gi, "<span>").replace(/> *<p/gi, "><p").replace(/> */gi, ">").replace(/ {3}/gi, " ").replace(/ {2}/, " ");
+    }
+    async renderAndAttachSVG(node) {
+      if (node.canBeFlattened) {
+        if (node.svg) {
+          return node;
+        }
+        try {
+          const svg = await exportAsyncProxy(node, {
+            format: "SVG_STRING"
+          });
+          if (node.colorVariableMappings && node.colorVariableMappings.size > 0) {
+            let processedSvg = svg;
+            const colorAttributeRegex = /(fill|stroke)="([^"]*)"/g;
+            processedSvg = processedSvg.replace(colorAttributeRegex, (match, attribute, colorValue) => {
+              const normalizedColor = colorValue.toLowerCase().trim();
+              const mapping = node.colorVariableMappings.get(normalizedColor);
+              if (mapping) {
+                return `${attribute}="var(--${mapping.variableName}, ${colorValue})"`;
+              }
+              return match;
+            });
+            const styleRegex = /style="([^"]*)(?:(fill|stroke):\s*([^;"]*))(;|\s|")([^"]*)"/g;
+            processedSvg = processedSvg.replace(
+              styleRegex,
+              (match, prefix, property, colorValue, separator, suffix) => {
+                const normalizedColor = colorValue.toLowerCase().trim();
+                const mapping = node.colorVariableMappings.get(normalizedColor);
+                if (mapping) {
+                  return `style="${prefix}${property}: var(--${mapping.variableName}, ${colorValue})${separator}${suffix}"`;
+                }
+                return match;
+              }
+            );
+            node.svg = processedSvg;
+          } else {
+            node.svg = svg;
+          }
+        } catch (error) {
+          console.error(`Error rendering SVG for ${node.type}:${node.id}`);
+          console.error(error);
+        }
+      }
+      return node;
     }
   };
 
@@ -2141,6 +2335,7 @@
     console.log("[debug] convertedSelection", __spreadValues({}, convertedSelection[0]));
     const blockBuilder = new BlockBuilder();
     clonedFrame = await blockBuilder.build(convertedSelection[0]);
+    console.log("clonedFrame", clonedFrame);
     figma.ui.postMessage({
       type: "conversionComplete" /* ConversionComplete */,
       data: clonedFrame

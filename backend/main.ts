@@ -81,6 +81,8 @@ async function runClone(node: SceneNode) {
 
 	clonedFrame = await blockBuilder.build(convertedSelection[0]);
 
+	console.log("clonedFrame", clonedFrame);
+
 	figma.ui.postMessage({
 		type: MessageType.ConversionComplete,
 		data: clonedFrame,
