@@ -467,6 +467,8 @@ export default class BlockBuilder {
 	}
 
 	private async parseTextElement(node: SceneNode): Promise<CommonPageElement> {
+		// TODO text transform uppercase, lowercase, capitalize
+
 		const layoutBuilder = new HtmlTextBuilder(node as TextNode)
 			.commonPositionStyles()
 			.textTrim()
