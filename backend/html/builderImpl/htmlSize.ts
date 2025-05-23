@@ -1,16 +1,7 @@
 import { nodeSize } from "../../common/nodeWidthHeight";
 import { formatWithJSX } from "../../common/parseJSX";
-import { isPreviewGlobal } from "../htmlMain";
 
 export const htmlSizePartial = (node: SceneNode): { width: string; height: string; constraints: string[] } => {
-	if (isPreviewGlobal && node.parent === undefined) {
-		return {
-			width: formatWithJSX("width", "100%"),
-			height: formatWithJSX("height", "100%"),
-			constraints: [],
-		};
-	}
-
 	const size = nodeSize(node);
 	const nodeParent = node.parent;
 

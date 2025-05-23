@@ -592,18 +592,8 @@
     return { width: node.width, height: node.height };
   };
 
-  // backend/html/htmlMain.ts
-  var isPreviewGlobal = false;
-
   // backend/html/builderImpl/htmlSize.ts
   var htmlSizePartial = (node) => {
-    if (isPreviewGlobal && node.parent === void 0) {
-      return {
-        width: formatWithJSX("width", "100%"),
-        height: formatWithJSX("height", "100%"),
-        constraints: []
-      };
-    }
     const size = nodeSize(node);
     const nodeParent = node.parent;
     let w = "";
@@ -1193,8 +1183,49 @@
     constructor() {
       __publicField(this, "block");
       __publicField(this, "elements");
+      __publicField(this, "font");
+      __publicField(this, "fontsCount", {});
+      __publicField(this, "fontWeights", {});
       this.elements = [];
       this.block = null;
+      this.font = {
+        button: {
+          weight: "400",
+          family: "Montserrat"
+        },
+        textarea: {
+          weight: "400",
+          family: "Montserrat"
+        },
+        h1: {
+          weight: "700",
+          family: "Montserrat"
+        },
+        h2: {
+          weight: "700",
+          family: "Montserrat"
+        },
+        h3: {
+          weight: "700",
+          family: "Montserrat"
+        },
+        h4: {
+          weight: "700",
+          family: "Montserrat"
+        },
+        h5: {
+          weight: "700",
+          family: "Montserrat"
+        },
+        h6: {
+          weight: "700",
+          family: "Montserrat"
+        },
+        p: {
+          weight: "400",
+          family: "Montserrat"
+        }
+      };
     }
     async build(node) {
       this.block = null;
@@ -1207,10 +1238,51 @@
       this.elements = await this.parseElements(
         node.children.map((child) => __spreadProps(__spreadValues({}, child), { parent: __spreadProps(__spreadValues({}, node), { x: 0, y: 0 }) }))
       );
+      this.processFonts();
       return {
         block: this.block,
-        elements: this.elements
+        elements: this.elements,
+        font: this.font
       };
+    }
+    processFonts() {
+      const fontFamilies = Object.keys(this.fontsCount);
+      if (fontFamilies.length > 0) {
+        const maxCount = Math.max(...Object.values(this.fontsCount));
+        const mostFrequentFont = Object.keys(this.fontsCount).find((key) => this.fontsCount[key] === maxCount);
+        if (mostFrequentFont) {
+          this.font.p.family = mostFrequentFont;
+          this.font.h1.family = mostFrequentFont;
+          this.font.h2.family = mostFrequentFont;
+          this.font.h3.family = mostFrequentFont;
+          this.font.h4.family = mostFrequentFont;
+          this.font.h5.family = mostFrequentFont;
+          this.font.h6.family = mostFrequentFont;
+          this.font.button.family = mostFrequentFont;
+          this.font.textarea.family = mostFrequentFont;
+        }
+      }
+      const fontWeightsKeys = Object.keys(this.fontWeights);
+      if (fontWeightsKeys.length > 0) {
+        const maxCount = Math.max(...Object.values(this.fontWeights));
+        const mostFrequentFontWeight = Object.keys(this.fontWeights).find(
+          (key) => this.fontWeights[key] === maxCount
+        );
+        if (mostFrequentFontWeight) {
+          this.font.p.weight = mostFrequentFontWeight;
+          this.font.h1.weight = mostFrequentFontWeight;
+          this.font.h2.weight = mostFrequentFontWeight;
+          this.font.h3.weight = mostFrequentFontWeight;
+          this.font.h4.weight = mostFrequentFontWeight;
+          this.font.h5.weight = mostFrequentFontWeight;
+          this.font.h6.weight = mostFrequentFontWeight;
+          this.font.button.weight = mostFrequentFontWeight;
+          this.font.textarea.weight = mostFrequentFontWeight;
+        }
+      }
+      console.log("[DEBUG] fontsCount", this.fontsCount);
+      console.log("[DEBUG] fontWeights", this.fontWeights);
+      console.log("[DEBUG] font", this.font);
     }
     async parseBlock(node, additionalStyles = []) {
       var _a;
@@ -1322,47 +1394,12 @@
       return parsedElements;
     }
     async parseElement(node) {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
       if (node.visible === false) {
         return [];
       }
       if ((node.width <= 0 || node.height <= 0) && (node.type === "FRAME" || node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "COMPONENT" || node.type === "INSTANCE" || node.type === "COMPONENT_SET")) {
         return [];
       }
-      if (node.parent && node.parent.type === "FRAME")
-        console.log(
-          `[DEBUG]`,
-          node.type,
-          node.name,
-          {
-            relative: {
-              x: node.x,
-              y: node.y,
-              width: node.width,
-              height: node.height
-            },
-            absolute: {
-              x: (_a = node.absoluteBoundingBox) == null ? void 0 : _a.x,
-              y: (_b = node.absoluteBoundingBox) == null ? void 0 : _b.y,
-              width: (_c = node.absoluteBoundingBox) == null ? void 0 : _c.width,
-              height: (_d = node.absoluteBoundingBox) == null ? void 0 : _d.height
-            }
-          },
-          {
-            relative: {
-              x: (_e = node.parent) == null ? void 0 : _e.x,
-              y: (_f = node.parent) == null ? void 0 : _f.y,
-              width: (_g = node.parent) == null ? void 0 : _g.width,
-              height: (_h = node.parent) == null ? void 0 : _h.height
-            },
-            absolute: {
-              x: (_j = (_i = node.parent) == null ? void 0 : _i.absoluteBoundingBox) == null ? void 0 : _j.x,
-              y: (_l = (_k = node.parent) == null ? void 0 : _k.absoluteBoundingBox) == null ? void 0 : _l.y,
-              width: (_n = (_m = node.parent) == null ? void 0 : _m.absoluteBoundingBox) == null ? void 0 : _n.width,
-              height: (_p = (_o = node.parent) == null ? void 0 : _o.absoluteBoundingBox) == null ? void 0 : _p.height
-            }
-          }
-        );
       if (node.parent && node.parent.type === "FRAME" && node.parent.clipsContent && (node.x < 0 || node.y < 0 || node.x > node.parent.width || node.y > node.parent.height || node.x + node.width > node.parent.x + node.parent.width || node.y + node.height > node.parent.y + node.parent.height)) {
         console.log(`[DEBUG] ${node.type} node is out of bounds`);
         return [];
@@ -1375,7 +1412,6 @@
         const altNode = await this.renderAndAttachSVG(node);
         if (altNode.svg) {
           const svg = await this.parseSvg(altNode);
-          console.log("svg", svg);
           if (svg) {
             return svg;
           }
@@ -1534,11 +1570,17 @@
               `#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1){ color: ${styleObj.color}; }`
             );
           }
-        }
-        if (+styleObj["font-weight"] >= 700) {
-          content = `<span><b>${styledHtml[0].text}</b></span>`;
+          if (+styleObj["font-weight"] >= 700) {
+            content = `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}><b>${styledHtml[0].text}</b></span>`;
+          } else {
+            content = `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}>${styledHtml[0].text}</span>`;
+          }
         } else {
-          content = `<span>${styledHtml[0].text}</span>`;
+          if (+styleObj["font-weight"] >= 700) {
+            content = `<span><b>${styledHtml[0].text}</b></span>`;
+          } else {
+            content = `<span>${styledHtml[0].text}</span>`;
+          }
         }
       } else {
         content = styledHtml.map((style, index) => {
@@ -1587,6 +1629,14 @@
           } else {
             lineHeights[style["line-height"]] = 1;
           }
+        }
+        if (style["font-family"]) {
+          this.fontsCount[style["font-family"]] = (this.fontsCount[style["font-family"]] || 0) + 1;
+        }
+        if (style["font-weight"]) {
+          this.fontWeights[style["font-weight"]] = (this.fontWeights[style["font-weight"]] || 0) + 1;
+        } else {
+          this.fontWeights["400"] = (this.fontWeights["400"] || 0) + 1;
         }
       }
       if (Object.keys(sizes).length > 0) {
@@ -1705,7 +1755,7 @@
       return [...children, section];
     }
     async parseContainerElement(node) {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+      var _a, _b, _c, _d, _e, _f, _g, _h;
       const builder = new HtmlDefaultBuilder(node).commonPositionStyles().commonShapeStyles();
       let image = void 0;
       if (builder.styles && nodeHasImageFill(node)) {
@@ -1721,12 +1771,16 @@
         };
       }
       const styles = this.stylesToObj(builder.styles);
+      let hasGradient = false;
+      if (styles.desktop["background-color"] && styles.desktop["background-color"].includes("gradient") || styles.desktop["background"] && styles.desktop["background"].includes("gradient")) {
+        hasGradient = true;
+      }
       const cssStyle = `
       opacity: ${(_b = styles.desktop.opacity) != null ? _b : 1};
       border: ${(_c = styles.desktop.border) != null ? _c : "0px"};
       filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1) invert(0) sepia(0) blur(0px) grayscale(0);
       border-radius: ${(_d = styles.desktop["border-radius"]) != null ? _d : 0};
-      background-image: ${image ? `url(${image.file})` : "none"};
+      background-image: ${image ? `url(${image.file})` : hasGradient ? "#gradient-img#" : "none"};
       background-size: ${(_e = styles.desktop["background-size"]) != null ? _e : "cover"};
       background-color: ${(_f = styles.desktop["background-color"]) != null ? _f : styles.desktop["background"] && !styles.desktop["background"].includes("url(") ? styles.desktop["background"] : "transparent"};
     	background-position: ${(_g = styles.desktop["background-position"]) != null ? _g : "center"};
@@ -1740,22 +1794,6 @@
 							style="${cssStyle}"></div>`;
       const id = this.genElementId();
       innerHtml = this.cleanInnerHtml(innerHtml);
-      console.log(node.name, node.type, (_i = node.parent) == null ? void 0 : _i.name, (_j = node.parent) == null ? void 0 : _j.type, {
-        boundingClientRect: {
-          desktop: {
-            width: node.width,
-            height: node.height,
-            left: +styles.desktop.left.replace("px", ""),
-            top: +styles.desktop.top.replace("px", "")
-          },
-          mobile: {
-            width: node.width,
-            height: node.height,
-            left: +styles.desktop.left.replace("px", ""),
-            top: +styles.desktop.top.replace("px", "")
-          }
-        }
-      });
       return {
         id,
         blockId: this.block.id,
@@ -2314,6 +2352,8 @@
     });
   });
   figma.loadAllPagesAsync();
+  var clonedFrame;
+  var processingGradients = [];
   figma.ui.onmessage = (message) => {
     console.log("[DEBUG] message received:", message);
     switch (message.type) {
@@ -2323,11 +2363,33 @@
         runClone(sceneNode);
         break;
       }
+      case "gradientProcessed" /* GradientProcessed */: {
+        const { gradient, image } = message.data;
+        if (!image) {
+          console.log("[DEBUG] No image found");
+          const element2 = clonedFrame.elements.find((el) => el.id === gradient.id);
+          element2.content.desktop = element2.content.desktop.replace("#gradient-img#", "none");
+          element2.content.mobile = element2.content.mobile.replace("#gradient-img#", "none");
+          element2.css.desktop = element2.css.desktop.replace("#gradient-img#", "none");
+          element2.css.mobile = element2.css.mobile.replace("#gradient-img#", "none");
+          processGradient();
+          return;
+        }
+        const element = clonedFrame.elements.find((el) => el.id === gradient.id);
+        if (element) {
+          const imageCss = `url(${image})`;
+          element.content.desktop = element.content.desktop.replace("#gradient-img#", imageCss);
+          element.content.mobile = element.content.mobile.replace("#gradient-img#", imageCss);
+          element.css.desktop = element.css.desktop.replace("#gradient-img#", imageCss);
+          element.css.mobile = element.css.mobile.replace("#gradient-img#", imageCss);
+        }
+        processGradient();
+        break;
+      }
       default:
         break;
     }
   };
-  var clonedFrame = {};
   async function runClone(node) {
     let convertedSelection;
     convertedSelection = await nodesToJSON([node]);
@@ -2336,9 +2398,29 @@
     const blockBuilder = new BlockBuilder();
     clonedFrame = await blockBuilder.build(convertedSelection[0]);
     console.log("clonedFrame", clonedFrame);
+    const gradients = clonedFrame.elements.filter((element) => element.content.desktop.includes("#gradient-img#"));
+    if (gradients.length > 0) {
+      processingGradients = gradients;
+      processGradient();
+      return;
+    }
+    sendConversionComplete();
+  }
+  var processGradient = async () => {
+    const gradient = processingGradients.pop();
+    if (!gradient) {
+      sendConversionComplete();
+      return;
+    }
+    figma.ui.postMessage({
+      type: "processGradient" /* ProcessGradient */,
+      data: gradient
+    });
+  };
+  var sendConversionComplete = () => {
     figma.ui.postMessage({
       type: "conversionComplete" /* ConversionComplete */,
-      data: clonedFrame
+      data: __spreadProps(__spreadValues({}, clonedFrame), { styles: [], scripts: [], icons: {} })
     });
-  }
+  };
 })();

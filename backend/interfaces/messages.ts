@@ -3,6 +3,8 @@ export enum MessageType {
 	IsSelected = "isSelected",
 	SelectionInit = "selectionInit",
 	ConversionComplete = "conversionComplete",
+	ProcessGradient = "processGradient",
+	GradientProcessed = "gradientProcessed",
 }
 
 export interface Message {

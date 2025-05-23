@@ -9,14 +9,56 @@ import { randomString } from "../utils/function";
 import { GreatClasses } from "../utils/great";
 import { htmlAutoLayoutProps } from "./builderImpl/htmlAutoLayout";
 import { HtmlDefaultBuilder, HtmlTextBuilder } from "./htmlDefaultBuilder";
+import FontsDTO from "../interfaces/pageElements/Font";
 
 export default class BlockBuilder {
 	private block: BlockElement | null;
 	private elements: CommonPageElement[];
+	private font: FontsDTO;
+	private fontsCount: { [key: string]: number } = {};
+	private fontWeights: { [key: string]: number } = {};
 
 	constructor() {
 		this.elements = [];
 		this.block = null;
+		this.font = {
+			button: {
+				weight: "400",
+				family: "Montserrat",
+			},
+			textarea: {
+				weight: "400",
+				family: "Montserrat",
+			},
+			h1: {
+				weight: "700",
+				family: "Montserrat",
+			},
+			h2: {
+				weight: "700",
+				family: "Montserrat",
+			},
+			h3: {
+				weight: "700",
+				family: "Montserrat",
+			},
+			h4: {
+				weight: "700",
+				family: "Montserrat",
+			},
+			h5: {
+				weight: "700",
+				family: "Montserrat",
+			},
+			h6: {
+				weight: "700",
+				family: "Montserrat",
+			},
+			p: {
+				weight: "400",
+				family: "Montserrat",
+			},
+		};
 	}
 
 	async build(node: SceneNode & BaseFrameMixin) {
@@ -34,10 +76,59 @@ export default class BlockBuilder {
 			(node.children as SceneNode[]).map((child) => ({ ...child, parent: { ...node, x: 0, y: 0 } })),
 		);
 
+		this.processFonts();
+
 		return {
 			block: this.block,
 			elements: this.elements,
+			font: this.font,
 		};
+	}
+
+	private processFonts() {
+		const fontFamilies = Object.keys(this.fontsCount);
+
+		if (fontFamilies.length > 0) {
+			const maxCount = Math.max(...Object.values(this.fontsCount));
+			const mostFrequentFont = Object.keys(this.fontsCount).find((key) => this.fontsCount[key] === maxCount);
+
+			if (mostFrequentFont) {
+				this.font.p.family = mostFrequentFont;
+				this.font.h1.family = mostFrequentFont;
+				this.font.h2.family = mostFrequentFont;
+				this.font.h3.family = mostFrequentFont;
+				this.font.h4.family = mostFrequentFont;
+				this.font.h5.family = mostFrequentFont;
+				this.font.h6.family = mostFrequentFont;
+				this.font.button.family = mostFrequentFont;
+				this.font.textarea.family = mostFrequentFont;
+			}
+		}
+
+		const fontWeightsKeys = Object.keys(this.fontWeights);
+
+		if (fontWeightsKeys.length > 0) {
+			const maxCount = Math.max(...Object.values(this.fontWeights));
+			const mostFrequentFontWeight = Object.keys(this.fontWeights).find(
+				(key) => this.fontWeights[key] === maxCount,
+			);
+
+			if (mostFrequentFontWeight) {
+				this.font.p.weight = mostFrequentFontWeight;
+				this.font.h1.weight = mostFrequentFontWeight;
+				this.font.h2.weight = mostFrequentFontWeight;
+				this.font.h3.weight = mostFrequentFontWeight;
+				this.font.h4.weight = mostFrequentFontWeight;
+				this.font.h5.weight = mostFrequentFontWeight;
+				this.font.h6.weight = mostFrequentFontWeight;
+				this.font.button.weight = mostFrequentFontWeight;
+				this.font.textarea.weight = mostFrequentFontWeight;
+			}
+		}
+
+		console.log("[DEBUG] fontsCount", this.fontsCount);
+		console.log("[DEBUG] fontWeights", this.fontWeights);
+		console.log("[DEBUG] font", this.font);
 	}
 
 	private async parseBlock(
@@ -185,43 +276,6 @@ export default class BlockBuilder {
 			return [];
 		}
 
-		// ignore the view when size is zero or less
-
-		if (node.parent && node.parent.type === "FRAME")
-			console.log(
-				`[DEBUG]`,
-				node.type,
-				node.name,
-				{
-					relative: {
-						x: node.x,
-						y: node.y,
-						width: node.width,
-						height: node.height,
-					},
-					absolute: {
-						x: node.absoluteBoundingBox?.x,
-						y: node.absoluteBoundingBox?.y,
-						width: node.absoluteBoundingBox?.width,
-						height: node.absoluteBoundingBox?.height,
-					},
-				},
-				{
-					relative: {
-						x: node.parent?.x,
-						y: node.parent?.y,
-						width: node.parent?.width,
-						height: node.parent?.height,
-					},
-					absolute: {
-						x: node.parent?.absoluteBoundingBox?.x,
-						y: node.parent?.absoluteBoundingBox?.y,
-						width: node.parent?.absoluteBoundingBox?.width,
-						height: node.parent?.absoluteBoundingBox?.height,
-					},
-				},
-			);
-
 		// overflow hidden
 		if (
 			node.parent &&
@@ -249,8 +303,6 @@ export default class BlockBuilder {
 
 			if (altNode.svg) {
 				const svg = await this.parseSvg(altNode);
-
-				console.log("svg", svg);
 
 				if (svg) {
 					return svg;
@@ -443,12 +495,22 @@ export default class BlockBuilder {
 						`#e_%element-id% .c > p:nth-of-type(1) > span:nth-of-type(1){ color: ${styleObj.color}; }`,
 					);
 				}
-			}
 
-			if (+styleObj["font-weight"] >= 700) {
-				content = `<span><b>${styledHtml[0].text}</b></span>`;
+				if (+styleObj["font-weight"] >= 700) {
+					content = `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}><b>${
+						styledHtml[0].text
+					}</b></span>`;
+				} else {
+					content = `<span ${styleObj.color ? `style="color: ${styleObj.color};"` : ""}>${
+						styledHtml[0].text
+					}</span>`;
+				}
 			} else {
-				content = `<span>${styledHtml[0].text}</span>`;
+				if (+styleObj["font-weight"] >= 700) {
+					content = `<span><b>${styledHtml[0].text}</b></span>`;
+				} else {
+					content = `<span>${styledHtml[0].text}</span>`;
+				}
 			}
 		} else {
 			content = styledHtml
@@ -516,6 +578,16 @@ export default class BlockBuilder {
 				} else {
 					lineHeights[style["line-height"]] = 1;
 				}
+			}
+
+			if (style["font-family"]) {
+				this.fontsCount[style["font-family"]] = (this.fontsCount[style["font-family"]] || 0) + 1;
+			}
+
+			if (style["font-weight"]) {
+				this.fontWeights[style["font-weight"]] = (this.fontWeights[style["font-weight"]] || 0) + 1;
+			} else {
+				this.fontWeights["400"] = (this.fontWeights["400"] || 0) + 1;
 			}
 		}
 
@@ -685,12 +757,21 @@ export default class BlockBuilder {
 
 		const styles = this.stylesToObj(builder.styles);
 
+		let hasGradient = false;
+
+		if (
+			(styles.desktop["background-color"] && styles.desktop["background-color"].includes("gradient")) ||
+			(styles.desktop["background"] && styles.desktop["background"].includes("gradient"))
+		) {
+			hasGradient = true;
+		}
+
 		const cssStyle = `
       opacity: ${styles.desktop.opacity ?? 1};
       border: ${styles.desktop.border ?? "0px"};
       filter: hue-rotate(0deg) saturate(1) brightness(1) contrast(1) invert(0) sepia(0) blur(0px) grayscale(0);
       border-radius: ${styles.desktop["border-radius"] ?? 0};
-      background-image: ${image ? `url(${image.file})` : "none"};
+      background-image: ${image ? `url(${image.file})` : hasGradient ? "#gradient-img#" : "none"};
       background-size: ${styles.desktop["background-size"] ?? "cover"};
       background-color: ${
 			styles.desktop["background-color"] ??
@@ -713,23 +794,6 @@ export default class BlockBuilder {
 		const id = this.genElementId();
 
 		innerHtml = this.cleanInnerHtml(innerHtml);
-
-		console.log(node.name, node.type, node.parent?.name, node.parent?.type, {
-			boundingClientRect: {
-				desktop: {
-					width: node.width,
-					height: node.height,
-					left: +styles.desktop.left.replace("px", ""),
-					top: +styles.desktop.top.replace("px", ""),
-				},
-				mobile: {
-					width: node.width,
-					height: node.height,
-					left: +styles.desktop.left.replace("px", ""),
-					top: +styles.desktop.top.replace("px", ""),
-				},
-			},
-		});
 
 		return {
 			id: id,

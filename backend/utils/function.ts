@@ -8,5 +8,5 @@ export const randomString = (length: number): string => {
 };
 
 export const styleToCamel = (str: string) => {
-	return str.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
+	return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 };

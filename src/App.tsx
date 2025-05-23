@@ -3,6 +3,8 @@ import "./assets/App.css";
 import { useEffect, useState } from "react";
 import { MessageType, type Message } from "./interfaces/figma";
 import { postMessage } from "./messaging";
+import CommonPageElement from "../backend/interfaces/pageElements/CommonPageElement";
+import { createGradientImage, parseLinearGradient } from "./utils/gradient";
 
 function App() {
 	const [isFrameSelected, setIsFrameSelected] = useState(false);
@@ -39,6 +41,11 @@ function App() {
 					break;
 				}
 
+				case MessageType.ProcessGradient: {
+					convertGradient(message.data);
+					break;
+				}
+
 				default:
 					break;
 			}
@@ -48,6 +55,39 @@ function App() {
 			window.onmessage = null;
 		};
 	}, []);
+
+	const convertGradient = (data: CommonPageElement) => {
+		console.log("[ui] convertGradient", data);
+
+		const result = parseLinearGradient(data.content.desktop);
+
+		if (!result) {
+			console.log("[ui] No gradient found");
+
+			postMessage({
+				type: MessageType.GradientProcessed,
+				data: {
+					gradient: data,
+					image: null,
+				},
+			});
+			return;
+		}
+
+		const image = createGradientImage(
+			result,
+			data.boundingClientRect.desktop.width,
+			data.boundingClientRect.desktop.height,
+		);
+
+		postMessage({
+			type: MessageType.GradientProcessed,
+			data: {
+				gradient: data,
+				image: image,
+			},
+		});
+	};
 
 	const downloadJson = (data: any) => {
 		const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
